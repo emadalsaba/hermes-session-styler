@@ -67,11 +67,25 @@ The folder name must stay `session-styler` (it must equal the plugin `id`).
 ### 2. Onto a remote client (e.g. the desktop app on a Windows box)
 
 ```bash
-./scripts/sync-to-client.sh --host desktop \
+./scripts/sync-to-client.sh --host <ssh-alias> \
+  --dest 'C:/Users/<you>/AppData/Local/hermes/desktop-plugins/session-styler'
+
+# every machine in the registry (default /opt/data/.hermes/browser_machines.json):
+./scripts/sync-to-client.sh --all \
   --dest 'C:/Users/<you>/AppData/Local/hermes/desktop-plugins/session-styler'
 ```
 
 It copies, then verifies the SHA-256 on both sides and prints the result.
+
+> **Plugins are per machine — and the app's home is the LOCAL one.** A desktop plugin is loaded
+> from the local `<HERMES_HOME>/desktop-plugins/` of the box running the app, regardless of which
+> backend/profile the window is connected to. If the user works on two machines, install on both
+> (`--all`), and differentiate the machines by looking for the running `Hermes.exe` / the
+> `desktop-plugins` folder — not by asking which profile is active.
+>
+> The sync script is shell-agnostic on purpose: a Windows `ssh` remote may still answer `uname`
+> (Git's `uname.exe` on PATH) while its ssh shell is `cmd.exe`, so it proves each step by outcome
+> (`cd "<path>" && echo OK`, a 64-hex hash) instead of trusting a probe.
 
 ### 3. Manually
 
