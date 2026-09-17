@@ -248,7 +248,7 @@ check('toggling back on re-annotates', doc.querySelectorAll('[data-hms-row]').le
 SDK.notifications.length = 0
 const $configAtom = null
 /* rules are exercised through the pane's persisted config: write then re-register */
-await boot({ on: true, rules: [{ id: 'r1', type: 'title', value: 'odoo|فواتير', icon: '🧾', color: '#f97316' }, { id: 'r2', type: 'profile', value: 'work-emails', hide: true }] })
+await boot({ on: true, rules: [{ id: 'r1', type: 'title', value: `odoo|${ARABIC_TITLE.slice(-6)}`, icon: '🧾', color: '#f97316' }, { id: 'r2', type: 'profile', value: 'work-emails', hide: true }] })
 check('title rule matched (regex over a non-Latin title)', Boolean(byTitle(ARABIC_TITLE)?.innerHTML.includes('🧾')))
 check('title rule applied per-row color var', byTitle(ARABIC_TITLE)?.getAttribute('style')?.includes('--hms-icon-rule: #f97316'))
 check('profile rule hid the row', byTitle('Waiting for your approval')?.getAttribute('data-hms-hidden') === '1')
@@ -279,7 +279,7 @@ check('drifted DOM still injects the stylesheet', Boolean(styleNode()))
 
 /* ------------------------------- 12. per-conversation overrides + ✦ menu */
 await boot(
-  { on: true, icons: { mode: 'emoji' }, sessionOverrides: { 'odoo::نموذج جديد للفواتير': { icon: '🧾' } } },
+    { on: true, icons: { mode: 'emoji' }, sessionOverrides: { [`odoo::${ARABIC_TITLE}`]: { icon: '🧾' } } },
   { rows: DEFAULT_ROWS }
 )
 check('session override applies to that conversation only', Boolean(byTitle(ARABIC_TITLE)?.innerHTML.includes('🧾')))
@@ -316,7 +316,7 @@ const backBtn = fresh
 backBtn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
 await new Promise(resolve => setTimeout(resolve, 200))
 check('back-to-state clears the override', !(saved.filter(e => e.key === 'config').at(-1)?.value?.sessionOverrides?.['odoo::Odoo sync report']), JSON.stringify(saved.filter(e => e.key === 'config').at(-1)?.value?.sessionOverrides))
-check('clearing one override keeps the others', saved.filter(e => e.key === 'config').at(-1)?.value?.sessionOverrides?.['odoo::نموذج جديد للفواتير']?.icon === '🧾')
+check('clearing one override keeps the others', saved.filter(e => e.key === 'config').at(-1)?.value?.sessionOverrides?.[`odoo::${ARABIC_TITLE}`]?.icon === '🧾')
 check('the row falls back to its state icon', !byTitle('Odoo sync report')?.querySelector('.hms-icon'))
 check('menu closes on outside pointerdown', (() => {
   doc.body.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true }))
