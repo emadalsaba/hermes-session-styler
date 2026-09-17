@@ -49,6 +49,8 @@ import { jsx, jsxs } from 'react/jsx-runtime'
 
 const MESSAGES = {
   en: {
+    "loadPrev": "previous",
+    "loadThis": "this load",
     "syncStateLabel": "sync",
     "loadStampHint": "Written on every load and mirrored into the profile, so a machine that never sees the app window can still tell whether an update loaded — compare the version and the counts.",
     "loadLabel": "Last load",
@@ -202,6 +204,8 @@ const MESSAGES = {
     "syncPortableNote": "Per-conversation icons are keyed by <profile>::<title> and mirrored into the profile’s ui_meta on the gateway, so another machine connected to the same profile restores them on load."
 },
   ar: {
+    "loadPrev": "السابق",
+    "loadThis": "هذا التحميل",
     "syncStateLabel": "المزامنة",
     "loadStampHint": "يُكتب عند كل تحميل ويُحفظ في البروفايل، فيمكن من أي مكان التأكد أن التحديث حُمّل — قارن الإصدار والعدد.",
     "loadLabel": "آخر تحميل",
@@ -373,7 +377,7 @@ function t(key, ...args) {
 }
 
 const ID = 'session-styler'
-const VERSION = '1.2.4'
+const VERSION = '1.3.0'
 const STYLE_ID = 'hermes-session-styler-style'
 const STORE_KEY = 'config'
 
@@ -1836,10 +1840,16 @@ function StylerPane() {
           jsxs('div', { children: ['hook: ', jsx('span', { className: 'font-mono', children: stats.hook })] }),
           jsxs('div', {
             children: [
-              'load: ',
+              t('loadThis') + ': ',
+              jsx('span', { className: 'font-mono', children: `v${VERSION}${stamp && stamp.at ? ` @ ${String(stamp.at).replace('T', ' ').slice(11, 16)}` : ''}` })
+            ]
+          }),
+          jsxs('div', {
+            children: [
+              t('loadPrev') + ': ',
               jsx('span', {
                 className: 'font-mono',
-                children: `${runtime.loadedVersion || VERSION} @ ${(runtime.loadedAt || '').replace('T', ' ').slice(0, 16) || '—'}`
+                children: `${runtime.loadedVersion || '—'}${runtime.loadedAt ? ` @ ${String(runtime.loadedAt).replace('T', ' ').slice(11, 16)}` : ''}`
               })
             ]
           }),

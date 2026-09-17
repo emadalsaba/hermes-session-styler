@@ -3,7 +3,7 @@
 Customizes the **session list** (the sidebar) of the Hermes Desktop app: per-conversation icons,
 status marks, colors and sizes — without patching a single app file.
 
-- Version: **1.2.4**
+- Version: **1.3.0**
 - Plugin id: `session-styler`
 - SDK: `@hermes/plugin-sdk` (desktop app plugin — one plain ESM file, no build step)
 - Verified against Hermes Desktop build `6005aa1` / Hermes `main`
@@ -79,6 +79,21 @@ is one more bundle in `MESSAGES`.
    marker) and marks it dead, so two instances can never fight over the same rows.
 
 ---
+
+## Layout
+
+```
+plugin.yaml            # manifest the Hermes plugin installer reads (name, version, capabilities)
+desktop/plugin.js      # the desktop half — one uncompiled ESM file, the whole plugin
+scripts/               # install / sync / verify / remote-reload helpers
+test/                  # jsdom harness over a fixture of the real session-row markup
+docs/banner.png        # catalog card image
+catalog/session-styler.yaml   # the entry submitted to the Hermes plugin catalog
+```
+
+The app loads the desktop half from `<HERMES_HOME>/desktop-plugins/<id>/plugin.js`; a unified-package
+install (`hermes plugins install session-styler`) drops the repo into `<HERMES_HOME>/plugins/` and the
+app copies `desktop/` out to that app-level root itself.
 
 ## Install
 

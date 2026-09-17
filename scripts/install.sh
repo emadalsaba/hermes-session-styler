@@ -10,7 +10,7 @@ set -euo pipefail
 
 PLUGIN_ID="session-styler"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SOURCE="$HERE/plugin.js"
+SOURCE="$HERE/desktop/plugin.js"
 HOME_ARG=""
 UNINSTALL=0
 
@@ -41,7 +41,7 @@ if [ "$UNINSTALL" = "1" ]; then
   exit 0
 fi
 
-[ -f "$SOURCE" ] || { echo "plugin.js not found next to this script ($SOURCE)" >&2; exit 1; }
+[ -f "$SOURCE" ] || { echo "desktop/plugin.js not found next to this script ($SOURCE)" >&2; exit 1; }
 
 mkdir -p "$TARGET"
 cp "$SOURCE" "$TARGET/plugin.js"

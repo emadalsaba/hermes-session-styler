@@ -20,7 +20,7 @@
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SOURCE="$HERE/plugin.js"
+SOURCE="$HERE/desktop/plugin.js"
 HOST=""
 DEST=""
 ALL=0

@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.3.0 — 2026-09-17
+
+**Changed — packaged the way the official catalog expects**
+
+- `plugin.js` moved to **`desktop/plugin.js`** and gained a **`plugin.yaml`** manifest, so the repo is a
+  normal Hermes package: `hermes plugins install session-styler` clones it at the reviewed pin, and the
+  app copies `desktop/` out to its own plugin root. The user-visible install path
+  (`<HERMES_HOME>/desktop-plugins/<id>/plugin.js`) is unchanged, and the helper scripts follow the new
+  layout.
+- `catalog/session-styler.yaml` — the catalog entry to submit, and README instructions for the PR and
+  for later SHA bumps.
+- `docs/banner.png` — the 2:1 catalog card image.
+
+**Fixed**
+
+- The pane's diagnostics showed a bare `load:` line whose value was the **previous** load (read before
+  the current one was written), which read as "the new version did not load". It now shows **this load**
+  and **previous** separately, with the current plugin version first.
+
 ## 1.2.4 — 2026-09-17
 
 **Added — every load reports itself to the profile, from every machine**

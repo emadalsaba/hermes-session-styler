@@ -10,7 +10,7 @@ import { copyFileSync, readFileSync } from 'node:fs'
 
 import { ARABIC_TITLE, BRANCH_ROWS, DEFAULT_ROWS, ROW_HTML } from './fixture.mjs'
 
-const PLUGIN_PATH = process.argv[2] || '/opt/data/profiles/system-update/desktop-plugins/session-styler/plugin.js'
+const PLUGIN_PATH = process.argv[2] || new URL('../desktop/plugin.js', import.meta.url).pathname
 const SDK = await import('@hermes/plugin-sdk')
 
 let failures = 0
