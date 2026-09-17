@@ -3,7 +3,7 @@
 Customizes the **session list** (the sidebar) of the Hermes Desktop app: per-conversation icons,
 status marks, colors and sizes — without patching a single app file.
 
-- Version: **1.2.1**
+- Version: **1.2.2**
 - Plugin id: `session-styler`
 - SDK: `@hermes/plugin-sdk` (desktop app plugin — one plain ESM file, no build step)
 - Verified against Hermes Desktop build `6005aa1` / Hermes `main`
@@ -21,6 +21,7 @@ status marks, colors and sizes — without patching a single app file.
 | **Rules** | match a row by title (text or regex), owning profile, or state → set an icon, a color, or hide the row |
 | **Advanced** | hook selector overrides, cross-machine sync, JSON export/import, reset |
 | **Help** | a short in-app usage guide, rendered in the app's language |
+| **Advanced → Last load** | the load stamp: version, rows, icons, per-conversation count, sync result and time — the same stamp is mirrored into the profile |
 
 Surfaces inside the app:
 

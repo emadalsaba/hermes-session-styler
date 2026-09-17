@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.2.2 — 2026-09-17
+
+**Added — a load you can verify from anywhere**
+
+- Every load writes a **load stamp** (version, rows, icons, per-conversation override count, locale,
+  profile, sync result, time) into local storage, and carries it inside the mirrored blob. A machine
+  that never opens the app window — the server, another desktop — can therefore answer "did the
+  update load, and did it break anything?" from the profile's `ui_meta` copy alone. The pane shows the
+  same stamp under Advanced → Last load.
+- `syncOnLoad()` reconciles **both directions** on every load: a newer server blob is adopted, and
+  newer local settings are pushed. A machine whose settings predate the sync feature now refreshes the
+  mirror on its own, with no user edit and no palette trip.
+
+**Tests**: 108 assertions (adds the stamp round-trip and the catch-up push).
+
 ## 1.2.1 — 2026-09-17
 
 **Added**

@@ -438,6 +438,25 @@ await new Promise(resolve => setTimeout(resolve, 1800))
 check('a fresh machine restores the per-conversation icons from the profile', byTitle('Deploy Hermes update')?.querySelector('.hms-icon')?.textContent === '🚀', `icon=${byTitle('Deploy Hermes update')?.querySelector('.hms-icon')?.textContent}`)
 check('a fresh machine restores the style settings too', styleNode()?.textContent.includes('--hms-icon-size') && doc.querySelectorAll('.hms-icon').length >= 3, String(doc.querySelectorAll('.hms-icon').length))
 check('the restore reports itself', SDK.notifications.some(n => (n.message || '').includes('restored')), JSON.stringify(SDK.notifications.at(-1)))
+const stampAfterPull = saved.filter(e => e.key === 'lastLoad').pop()?.value
+check('the load stamp records the restore', stampAfterPull?.sync === 'pulled', JSON.stringify(stampAfterPull))
+
+/* a machine whose settings predate sync: local newer → the mirror catches up on
+ * load, with no user edit and no palette trip */
+await boot(
+  { on: true, sync: { on: true }, icons: { mode: 'emoji' }, sessionOverrides: { 'system-update::Deploy Hermes update': { icon: '📦' } } },
+  { rows: DEFAULT_ROWS, server: { plugin: 'session-styler', updatedAt: 1, version: '1.2.0', icons: { mode: 'dot' } } }
+)
+await new Promise(resolve => setTimeout(resolve, 1800))
+const catchUp = SDK.rpc.calls.filter(call => call.method === 'profiles.configure').at(-1)
+check('a machine with newer local settings pushes them on load', catchUp?.params?.ui_meta?.['session-styler']?.sessionOverrides?.['system-update::Deploy Hermes update']?.icon === '📦', JSON.stringify(catchUp?.params?.ui_meta?.['session-styler']?.sessionOverrides || null))
+const stampAfterPush = saved.filter(e => e.key === 'lastLoad').pop()?.value
+check('the load stamp travels inside the mirrored blob', catchUp?.params?.ui_meta?.['session-styler']?.lastLoad?.version === VERSION_IN_SOURCE, JSON.stringify(catchUp?.params?.ui_meta?.['session-styler']?.lastLoad || null))
+check('the load stamp is written locally on every load', stampAfterPush?.version === VERSION_IN_SOURCE && stampAfterPush.rows > 0 && typeof stampAfterPush.icons === 'number', JSON.stringify(stampAfterPush))
+check('the portable slice keeps the host metadata out of the applied fields', (() => {
+  const fields = catchUp?.params?.ui_meta?.['session-styler'] || {}
+  return 'lastLoad' in fields && !('plugin' in (fields.sessionOverrides || {}))
+})())
 
 console.log('\nSession Styler — plugin harness\n' + '='.repeat(46))
 for (const result of results) {

@@ -49,6 +49,9 @@ import { jsx, jsxs } from 'react/jsx-runtime'
 
 const MESSAGES = {
   en: {
+    "syncStateLabel": "sync",
+    "loadStampHint": "Written on every load and mirrored into the profile, so a machine that never sees the app window can still tell whether an update loaded — compare the version and the counts.",
+    "loadLabel": "Last load",
     "help6": "The plugin follows the app language automatically (Arabic / English bundles).",
     "help5": "After a Hermes update run scripts/check-hooks.sh; on DRIFT paste the new selector in Advanced → Save hooks.",
     "help4": "Settings travel: they are mirrored into the profile on the server, so a new machine restores them (Advanced → sync).",
@@ -199,6 +202,9 @@ const MESSAGES = {
     "syncPortableNote": "Per-conversation icons are keyed by <profile>::<title> and mirrored into the profile’s ui_meta on the gateway, so another machine connected to the same profile restores them on load."
 },
   ar: {
+    "syncStateLabel": "المزامنة",
+    "loadStampHint": "يُكتب عند كل تحميل ويُحفظ في البروفايل، فيمكن من أي مكان التأكد أن التحديث حُمّل — قارن الإصدار والعدد.",
+    "loadLabel": "آخر تحميل",
     "help6": "الإضافة تتبع لغة التطبيق تلقائيًا (حزمة عربية وإنجليزية).",
     "help5": "بعد أي تحديث لـ Hermes شغّل scripts/check-hooks.sh، وعند DRIFT الصق المُحدِّد الجديد في «متقدم» ثم احفظ.",
     "help4": "الإعدادات تنتقل: تُحفظ في البروفايل على السيرفر فيستعيدها أي جهاز جديد (متقدم → مزامنة).",
@@ -367,7 +373,7 @@ function t(key, ...args) {
 }
 
 const ID = 'session-styler'
-const VERSION = '1.2.1'
+const VERSION = '1.2.2'
 const STYLE_ID = 'hermes-session-styler-style'
 const STORE_KEY = 'config'
 
@@ -539,6 +545,37 @@ function persist() {
   } catch {
     /* persistence is best-effort */
   }
+}
+
+/** Load stamp — what this machine actually loaded, and how its settings fared.
+ *  Written to local storage on every register AND carried inside the portable
+ *  blob, so a machine that never sees this app window (the server, another
+ *  desktop) can still answer "did the update load, and did it break anything?"
+ *  from the mirrored copy alone. */
+const STAMP_KEY = 'lastLoad'
+let loadStamp = null
+
+function writeLoadStamp(extra) {
+  const stats = $stats.get()
+  const cfg = $config.get()
+  loadStamp = {
+    at: new Date().toISOString(),
+    version: VERSION,
+    rows: stats.rows,
+    icons: stats.styled,
+    overrides: Object.keys(cfg.sessionOverrides || {}).length,
+    locale: runtime.locale || null,
+    profile: (host.state.profile.get() || '').trim() || 'default',
+    sync: $sync.get().state,
+    ...(extra || {})
+  }
+  try {
+    if (store) store.set(STAMP_KEY, loadStamp)
+  } catch {
+    /* persistence is best-effort */
+  }
+  $stamp.set(loadStamp)
+  return loadStamp
 }
 
 /** Apply a config change. `replace` lists keys whose patch value must be
@@ -876,11 +913,14 @@ function setSessionOverride(info, patch) {
  * so a new machine connecting to that profile pulls it back on load.
  * ------------------------------------------------------------------------ */
 const $sync = atom({ at: 0, error: '', state: 'idle' })
+/** Mirrors the on-disk load stamp so the pane renders it reactively. */
+const $stamp = atom(null)
 let syncPushTimer = null
 
 function portableSlice() {
   const cfg = $config.get()
   const out = { plugin: ID, updatedAt: cfg.updatedAt || Date.now(), version: VERSION }
+  if (loadStamp) out.lastLoad = loadStamp
   for (const field of PORTABLE_FIELDS) out[field] = cfg[field]
   return out
 }
@@ -947,23 +987,33 @@ function scheduleSyncPush() {
   }, 1500)
 }
 
-/** On load: adopt the server blob when it is newer than what this machine has. */
-async function restoreFromProfile() {
+/** On load, reconcile BOTH directions with the profile copy:
+ *  - server newer  → adopt it (the "I installed it on a new machine" path);
+ *  - server older  → push (the mirror stays honest without a user edit, which is
+ *    what a machine whose settings predate sync needs);
+ *  - equal/absent  → nothing to do. */
+async function syncOnLoad() {
+  const localAt = Number($config.get().updatedAt || 0)
   const blob = await pullSync()
-  if (!blob) {
-    $sync.set({ at: 0, error: '', state: 'idle' })
-    return false
+  const serverAt = Number((blob && blob.updatedAt) || 0)
+  if (blob && serverAt > localAt) {
+    const applied = applyPortable(blob)
+    if (applied) {
+      $sync.set({ at: serverAt || Date.now(), error: '', state: 'pulled' })
+      host.notify({ kind: 'info', message: t('syncPulled') })
+    }
+    return applied
   }
-  if (Number(blob.updatedAt || 0) <= Number($config.get().updatedAt || 0)) {
-    $sync.set({ at: Number(blob.updatedAt) || Date.now(), error: '', state: 'pulled' })
-    return false
+  if (localAt > serverAt && $config.get().sync?.on) {
+    return pushSync({ silent: true })
   }
-  const applied = applyPortable(blob)
-  if (applied) {
-    $sync.set({ at: Number(blob.updatedAt) || Date.now(), error: '', state: 'pulled' })
-    host.notify({ kind: 'info', message: t('syncPulled') })
-  }
-  return applied
+  $sync.set({ at: serverAt || 0, error: '', state: blob ? 'pulled' : 'idle' })
+  return false
+}
+
+/** Kept for callers that only want the advisory pull. */
+async function restoreFromProfile() {
+  return syncOnLoad()
 }
 
 /* ---------------------------------------------------------------------------
@@ -1667,6 +1717,7 @@ function PreviewRow({ state, title }) {
 function StylerPane() {
   const T = usePluginI18n(ID)
   const cfg = useValue($config)
+  const stamp = useValue($stamp)
   const stats = useValue($stats)
   const rows = useValue($rows)
   const sync = useValue($sync)
@@ -2193,6 +2244,19 @@ function StylerPane() {
                 className: 'text-[0.625rem] leading-4 text-(--ui-text-tertiary)',
                 children: T('advIntro')
               }),
+              jsxs('div', {
+                className: 'flex flex-col gap-0.5 rounded-sm border border-(--ui-border-subtle) p-1.5',
+                children: [
+                  jsx('div', { className: 'text-[0.625rem] uppercase text-(--ui-text-quaternary)', children: T('loadLabel') }),
+                  jsx('div', {
+                    className: 'font-mono text-[0.625rem] leading-4 text-(--ui-text-secondary)',
+                    children: stamp
+                      ? `v${stamp.version} · ${stamp.rows} ${T('rowsWord')} · ${stamp.icons} ${T('iconsWord')} · ${stamp.overrides} ✦ · ${T('syncStateLabel')}: ${stamp.sync} · ${String(stamp.at || '').slice(11, 19)}`
+                      : '—'
+                  }),
+                  jsx('div', { className: 'text-[0.5625rem] leading-3 text-(--ui-text-tertiary)', children: T('loadStampHint') })
+                ]
+              }),
               ['row', 'label', 'meta', 'lead', 'dot', 'profileGlyph'].map(key => {
                 const value = hookDraft?.[key] ?? cfg.hooks?.[key] ?? ''
                 return jsx(Field, {
@@ -2416,6 +2480,7 @@ export default {
     try {
       ctx.i18n?.register?.(MESSAGES)
       if (typeof ctx.i18n?.t === 'function') translator = ctx.i18n.t
+      if (typeof ctx.i18n?.locale === 'string') runtime.locale = ctx.i18n.locale
     } catch {
       /* older shell: the built-in English bundle still answers */
     }
@@ -2431,6 +2496,7 @@ export default {
      * app pick it up?" from the pane's diagnostics line. */
     try {
       runtime.loadedAt = store?.get?.('loadedAt', null) || null
+      $stamp.set(store?.get?.(STAMP_KEY, null) || null)
       runtime.loadedVersion = store?.get?.('loadedVersion', null) || null
       store?.set?.('loadedAt', new Date().toISOString())
       store?.set?.('loadedVersion', VERSION)
@@ -2484,7 +2550,10 @@ export default {
      * loaded, so the load reports itself and its match count. */
     applyAll()
     setTimeout(() => applyAll(), 800)
-    if ($config.get().sync?.on) setTimeout(() => void restoreFromProfile(), 1200)
+    /* Stamp first (row counts are known by then), then reconcile with the
+     * profile: a push that follows carries this load's stamp up with it. */
+    setTimeout(() => writeLoadStamp(), 1000)
+    if ($config.get().sync?.on) setTimeout(() => void syncOnLoad().then(() => writeLoadStamp()), 1200)
     setTimeout(() => {
       const stats = $stats.get()
       if (!stats.on) return
