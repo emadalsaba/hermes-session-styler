@@ -448,11 +448,21 @@ await boot(
   { rows: DEFAULT_ROWS, server: { plugin: 'session-styler', updatedAt: 1, version: '1.2.0', icons: { mode: 'dot' } } }
 )
 await new Promise(resolve => setTimeout(resolve, 1800))
-const catchUp = SDK.rpc.calls.filter(call => call.method === 'profiles.configure').at(-1)
+/* the settings mirror and the load beacon are separate ui_meta keys: the
+ * assertion targets the one carrying the settings */
+const catchUpAll = SDK.rpc.calls.filter(call => call.method === 'profiles.configure')
+const catchUp = catchUpAll.filter(call => call.params?.ui_meta?.['session-styler']?.sessionOverrides).at(-1)
 check('a machine with newer local settings pushes them on load', catchUp?.params?.ui_meta?.['session-styler']?.sessionOverrides?.['system-update::Deploy Hermes update']?.icon === '📦', JSON.stringify(catchUp?.params?.ui_meta?.['session-styler']?.sessionOverrides || null))
 const stampAfterPush = saved.filter(e => e.key === 'lastLoad').pop()?.value
 check('the load stamp travels inside the mirrored blob', catchUp?.params?.ui_meta?.['session-styler']?.lastLoad?.version === VERSION_IN_SOURCE, JSON.stringify(catchUp?.params?.ui_meta?.['session-styler']?.lastLoad || null))
 check('the load stamp is written locally on every load', stampAfterPush?.version === VERSION_IN_SOURCE && stampAfterPush.rows > 0 && typeof stampAfterPush.icons === 'number', JSON.stringify(stampAfterPush))
+check('every load reports itself under a per-machine beacon key', (() => {
+  const beacon = catchUpAll
+    .map(call => Object.entries(call.params?.ui_meta || {}).find(([key]) => key.startsWith('session-styler.load.')))
+    .filter(Boolean)
+    .at(-1)
+  return Boolean(beacon) && beacon[1].machine && beacon[1].version === VERSION_IN_SOURCE && typeof beacon[1].rows === 'number' && Boolean(beacon[1].diag?.cand)
+})(), JSON.stringify(SDK.rpc.calls.filter(c => c.method === 'profiles.configure').map(c => Object.keys(c.params?.ui_meta || {})).slice(-3)))
 check('the portable slice keeps the host metadata out of the applied fields', (() => {
   const fields = catchUp?.params?.ui_meta?.['session-styler'] || {}
   return 'lastLoad' in fields && !('plugin' in (fields.sessionOverrides || {}))

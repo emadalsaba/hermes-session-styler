@@ -55,6 +55,16 @@ for f in sorted(glob.glob('/opt/data/profiles/*/profile.yaml')):
     print(f'     last load (stamp): {lv.group(1) if lv else "none"}')
     print(f'     updatedAt        : {uid.group(1) if uid else "?"}')
     print(f'     overrides        : {(ov.group(1).strip()[:180] if ov else "")!r}')
+    for beacon in re.finditer(r'(session-styler\.load\.[\w.]+):\n((?: {4,}\S.*\n)+)', txt):
+        name, block = beacon.group(1), beacon.group(2)
+        ver = re.search(r'version:\s*([\w.\-]+)', block)
+        rows = re.search(r'rows:\s*(\d+)', block)
+        icons = re.search(r'icons:\s*(\d+)', block)
+        at = re.search(r"at:\s*'?([^'\n]+)'?", block)
+        hook = re.search(r'hook:\s*\'?\"?([^\n\'"]+)', block)
+        print(f'     load beacon      : {name}')
+        print(f'        v{ver.group(1) if ver else "?"} · rows {rows.group(1) if rows else "?"} · icons {icons.group(1) if icons else "?"} · at {at.group(1) if at else "?"}')
+        print(f'        hook           : {hook.group(1).strip() if hook else "?"}')
 if not found:
     print('   nothing mirrored yet — no machine has pushed its settings to the profile')
 PY

@@ -1,5 +1,39 @@
 # Changelog
 
+## 1.2.4 — 2026-09-17
+
+**Added — every load reports itself to the profile, from every machine**
+
+- A **load beacon** is written to the active profile's `ui_meta` under
+  `session-styler.load.<machineId>` on **every** load (not only when settings change), carrying the
+  plugin version, row/icon counts, per-state breakdown, the hook that matched, the per-hook candidate
+  counts and the visible titles. A machine that never opens the app window can therefore answer
+  *"which version loaded where, and did the markup move?"* — the reason a subtle failure (a stale
+  build, hook drift, an empty sidebar) is now diagnosable from the server.
+- Each machine keeps a stable anonymous id in its own storage, so the beacons of several machines
+  coexist in the profile instead of overwriting each other.
+
+**Added — update tooling for machines whose file watcher is dead**
+
+- `scripts/reload-plugins-palette.ps1` — invokes the app's own **"Reload desktop plugins"** palette
+  command through UI Automation, from an interactive scheduled task. It refuses to press Enter unless
+  it has seen the command in the UI tree, so no stray keystrokes reach the app.
+- `scripts/force-plugin-reload.ps1` — for the case the palette cannot fix: the app's scan skips plugin
+  files it already knows **by path** (`if (disk.has(file)) continue`), so an edited `plugin.js` is
+  never re-read when the per-file watcher has died. Removing the folder makes the app unload and
+  forget it; re-creating it makes the next scan import the file for real. Settings survive, because
+  plugin storage is namespaced by the plugin's own id.
+- `scripts/capture-client-window.ps1` — screenshots the app window on a client machine, so "what does
+  the user actually see" is answerable without driving their UI.
+
+## 1.2.3 — 2026-09-17
+
+**Added**
+
+- The load stamp now carries a `diag` snapshot: the hook that matched, the per-hook candidate counts,
+  the per-state breakdown of the visible rows, and the first few row titles. That separates "the
+  sidebar was empty" from "the markup moved and the hooks missed" without a debugger.
+
 ## 1.2.2 — 2026-09-17
 
 **Added — a load you can verify from anywhere**

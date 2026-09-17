@@ -373,7 +373,7 @@ function t(key, ...args) {
 }
 
 const ID = 'session-styler'
-const VERSION = '1.2.2'
+const VERSION = '1.2.4'
 const STYLE_ID = 'hermes-session-styler-style'
 const STORE_KEY = 'config'
 
@@ -553,7 +553,60 @@ function persist() {
  *  desktop) can still answer "did the update load, and did it break anything?"
  *  from the mirrored copy alone. */
 const STAMP_KEY = 'lastLoad'
+const MACHINE_KEY = 'machineId'
+const LOAD_KEY_PREFIX = 'session-styler.load.'
 let loadStamp = null
+let machineId = ''
+
+/** A stable, anonymous id for THIS machine (its own storage), so every load can
+ *  be reported to the profile under a per-machine key — the difference between
+ *  "an update loaded" and "an update loaded on the laptop" survives forever. */
+function ensureMachineId() {
+  try {
+    machineId = String(store?.get?.(MACHINE_KEY, '') || '')
+    if (!machineId) {
+      machineId = Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4)
+      store?.set?.(MACHINE_KEY, machineId)
+    }
+  } catch {
+    machineId = machineId || 'unknown'
+  }
+  return machineId
+}
+
+/** Compact picture of what this window looked like at load: the counts, the
+ *  hook that matched, and the per-hook candidate counts. Read remotely (local
+ *  storage or the profile mirror) it separates "the sidebar was empty" from
+ *  "the markup moved and the hooks missed". */
+function diagSnapshot() {
+  const stats = $stats.get()
+  const out = {
+    rows: stats.rows,
+    icons: stats.styled,
+    hook: stats.hook,
+    states: stats.states,
+    profiles: (stats.profiles || []).slice(0, 8),
+    warn: (stats.warnings || []).slice(0, 2)
+  }
+  try {
+    out.cand = HOOKS.row.map(sel => {
+      try {
+        return document.querySelectorAll(sel).length
+      } catch {
+        return -1
+      }
+    })
+    out.slots = document.querySelectorAll('[data-slot]').length
+    out.rails = document.querySelectorAll('[class*="rail"], [data-slot*="rail"]').length
+    out.titles = $rows
+      .get()
+      .slice(0, 5)
+      .map(row => String(row.title || '').slice(0, 24))
+  } catch {
+    /* a document-less context (boot) */
+  }
+  return out
+}
 
 function writeLoadStamp(extra) {
   const stats = $stats.get()
@@ -567,6 +620,7 @@ function writeLoadStamp(extra) {
     locale: runtime.locale || null,
     profile: (host.state.profile.get() || '').trim() || 'default',
     sync: $sync.get().state,
+    diag: diagSnapshot(),
     ...(extra || {})
   }
   try {
@@ -954,6 +1008,25 @@ async function pullSync() {
     return best
   } catch {
     return null
+  }
+}
+
+/** Report this load to the profile store under `session-styler.load.<machine>`.
+ *  Fired on every load (not only when settings change), so a machine that never
+ *  opens the app window — the server, another desktop — can read which version
+ *  loaded where and what the DOM looked like when it did. */
+async function pushLoadBeacon() {
+  if (runtime.dead || !$config.get().sync?.on) return false
+  try {
+    const profile = (host.state.profile.get() || 'default').trim() || 'default'
+    const stamp = writeLoadStamp()
+    const res = await host.request('profiles.configure', {
+      name: profile,
+      ui_meta: { [LOAD_KEY_PREFIX + ensureMachineId()]: { ...stamp, machine: ensureMachineId() } }
+    })
+    return Boolean(res && res.applied && res.applied.ui_meta !== false)
+  } catch {
+    return false
   }
 }
 
@@ -2553,7 +2626,14 @@ export default {
     /* Stamp first (row counts are known by then), then reconcile with the
      * profile: a push that follows carries this load's stamp up with it. */
     setTimeout(() => writeLoadStamp(), 1000)
-    if ($config.get().sync?.on) setTimeout(() => void syncOnLoad().then(() => writeLoadStamp()), 1200)
+    setTimeout(() => ensureMachineId(), 800)
+    if ($config.get().sync?.on) {
+      setTimeout(() => {
+        void syncOnLoad()
+          .then(() => writeLoadStamp())
+          .then(() => pushLoadBeacon())
+      }, 1200)
+    }
     setTimeout(() => {
       const stats = $stats.get()
       if (!stats.on) return
