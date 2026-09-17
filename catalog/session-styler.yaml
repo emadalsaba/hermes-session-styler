@@ -1,7 +1,7 @@
 name: session-styler
 repo: https://github.com/emadalsaba/hermes-session-styler
-sha: 85d091516517cb3fc06e676079f8ba61d21d70d2
-description: Style the Hermes Desktop session list — per-conversation icons (a ✦ menu on every row),
+sha: 1991d65b8bd70573acecba950ff0b4c248bfda11
+description: Style the Hermes Desktop session list — per-conversation icons from a ✦ menu on every row,
   a status mark beside them, colors, sizes and match rules, with branch children inheriting their
   parent's icon. Settings are mirrored into the active profile so a new machine restores them on load,
   and every load reports itself to the profile under a per-machine key. Arabic + English, follows the
@@ -11,8 +11,8 @@ tier: community
 category: desktop
 requires_hermes: ">=0.21.0"
 docs_url: https://github.com/emadalsaba/hermes-session-styler#readme
-version: "1.3.0"
-image: https://raw.githubusercontent.com/emadalsaba/hermes-session-styler/85d091516517cb3fc06e676079f8ba61d21d70d2/docs/banner.png
+version: "1.3.1"
+image: https://raw.githubusercontent.com/emadalsaba/hermes-session-styler/1991d65b8bd70573acecba950ff0b4c248bfda11/docs/banner.png
 platforms: []
 capabilities:
   provides_tools: []
