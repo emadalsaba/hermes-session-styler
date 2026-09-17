@@ -39,13 +39,18 @@ export const ROW_HTML = rows => `
     .join('')}
 </nav>`
 
+/** A right-to-left session title — user data, not copy. */
+export const ARABIC_TITLE = 'نموذج جديد للفواتير'
+
 export const DEFAULT_ROWS = [
   { title: 'Odoo sync report', profile: 'odoo', selected: true, dotAttrs: 'aria-hidden="true" class="size-1 rounded-full bg-(--ui-text-quaternary)" style="background-color: hsl(200 68% 58%)"' },
   { title: 'Weekly review', profile: 'personal', dotAttrs: 'class="size-1 rounded-full bg-(--ui-text-quaternary)"' },
   { title: 'Deploy Hermes update', profile: 'system-update', dotAttrs: 'role="status" class="size-1.5 rounded-full bg-(--ui-accent)"', working: true, arc: true },
-  { title: 'نموذج جديد للفواتير', profile: 'odoo', dotAttrs: 'aria-label="finished unread" class="size-1.5 rounded-full bg-(--ui-success)"' },
-  { title: 'تحتاج موافقتك', profile: 'work-emails', dotAttrs: 'role="status" class="size-1.5 rounded-full bg-amber-500"' },
-  { title: 'مسودة فارغة', profile: null, dotAttrs: 'class="size-1.5 rounded-full border border-(--ui-text-quaternary)"' }
+  /* One row keeps a non-Latin title on purpose: session titles are user data,
+   * and the plugin must match / annotate them regardless of script (RTL safe). */
+  { title: ARABIC_TITLE, profile: 'odoo', dotAttrs: 'aria-label="finished unread" class="size-1.5 rounded-full bg-(--ui-success)"' },
+  { title: 'Waiting for your approval', profile: 'work-emails', dotAttrs: 'role="status" class="size-1.5 rounded-full bg-amber-500"' },
+  { title: 'Empty draft', profile: null, dotAttrs: 'class="size-1.5 rounded-full border border-(--ui-text-quaternary)"' }
 ]
 
 /* A parent with a branch child (└─ stem), exactly as the depth-first sidebar

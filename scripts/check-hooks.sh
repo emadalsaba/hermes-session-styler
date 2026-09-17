@@ -115,9 +115,9 @@ echo "-----------------------------------------------------------"
 echo "anchors OK: $PASS    drifted: $FAIL"
 if [ "$FAIL" -gt 0 ]; then
   echo
-  echo "Action: open the 'session styler' pane → متقدم / Advanced, paste the new selector for"
-  echo "each drifted hook, press «حفظ المُحدِّدات» / Save hooks. No file edit, no reinstall needed."
+  echo "Action: open the 'session styler' pane -> Advanced, paste the new selector for each"
+  echo "drifted hook, and press 'Save hooks'. No file edit and no reinstall needed."
   echo "Drifted: $FAILED_LINES"
   exit 1
 fi
-echo "Nothing to do — this build still exposes every anchor."
+echo "Nothing to do - this build still exposes every anchor."

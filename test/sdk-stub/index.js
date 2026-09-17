@@ -58,6 +58,10 @@ function translateWith(id) {
     return typeof value === 'function' ? value(...args) : value ?? key
   }
 }
+export function pluginI18nBundles(id) {
+  return pluginLocales.get(id) || {}
+}
+
 export function usePluginI18n(id) {
   return translateWith(id)
 }

@@ -8,7 +8,7 @@ import { JSDOM } from 'jsdom'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { copyFileSync, readFileSync } from 'node:fs'
 
-import { BRANCH_ROWS, DEFAULT_ROWS, ROW_HTML } from './fixture.mjs'
+import { ARABIC_TITLE, BRANCH_ROWS, DEFAULT_ROWS, ROW_HTML } from './fixture.mjs'
 
 const PLUGIN_PATH = process.argv[2] || '/opt/data/profiles/system-update/desktop-plugins/session-styler/plugin.js'
 const SDK = await import('@hermes/plugin-sdk')
@@ -160,19 +160,19 @@ const byTitle = title => {
 }
 check('idle detected', stateOf(byTitle('Odoo sync report')) === 'idle', String(stateOf(byTitle('Odoo sync report'))))
 check('working detected', stateOf(byTitle('Deploy Hermes update')) === 'working', String(stateOf(byTitle('Deploy Hermes update'))))
-check('unread detected', stateOf(byTitle('نموذج جديد للفواتير')) === 'unread', String(stateOf(byTitle('نموذج جديد للفواتير'))))
-check('needs-input detected', stateOf(byTitle('تحتاج موافقتك')) === 'needsInput', String(stateOf(byTitle('تحتاج موافقتك'))))
-check('draft detected', stateOf(byTitle('مسودة فارغة')) === 'draft', String(stateOf(byTitle('مسودة فارغة'))))
+check('unread detected', stateOf(byTitle(ARABIC_TITLE)) === 'unread', String(stateOf(byTitle(ARABIC_TITLE))))
+check('needs-input detected', stateOf(byTitle('Waiting for your approval')) === 'needsInput', String(stateOf(byTitle('Waiting for your approval'))))
+check('draft detected', stateOf(byTitle('Empty draft')) === 'draft', String(stateOf(byTitle('Empty draft'))))
 check('dot node stamped', doc.querySelectorAll('[data-hms-dot]').length === DEFAULT_ROWS.length, String(doc.querySelectorAll('[data-hms-dot]').length))
 check('profile read from row chip', byTitle('Odoo sync report')?.getAttribute('data-hms-profile') === 'odoo', String(byTitle('Odoo sync report')?.getAttribute('data-hms-profile')))
-check('profile-less row has no stamp', byTitle('مسودة فارغة')?.hasAttribute('data-hms-profile') === false)
+check('profile-less row has no stamp', byTitle('Empty draft')?.hasAttribute('data-hms-profile') === false)
 
 /* ------------------------------------------------- 3b. load toast (proof of load) */
 for (let waited = 0; waited < 40 && !SDK.notifications.some(n => (n.message || '').includes('Session Styler v1.')); waited += 1) {
   await new Promise(resolve => setTimeout(resolve, 100))
 }
 const loadToast = SDK.notifications.find(n => (n.message || '').includes('Session Styler v1.'))
-check('load toast reports rows + icons on load', Boolean(loadToast) && /\d+ صف/.test(loadToast.message), loadToast?.message)
+check('load toast reports rows + icons on load', Boolean(loadToast) && /\d+ rows/.test(loadToast.message), loadToast?.message)
 
 /* --------------------------------------------------- 4. diagnostics via public API */
 SDK.notifications.length = 0
@@ -249,9 +249,9 @@ SDK.notifications.length = 0
 const $configAtom = null
 /* rules are exercised through the pane's persisted config: write then re-register */
 await boot({ on: true, rules: [{ id: 'r1', type: 'title', value: 'odoo|فواتير', icon: '🧾', color: '#f97316' }, { id: 'r2', type: 'profile', value: 'work-emails', hide: true }] })
-check('title rule matched (regex, arabic)', Boolean(byTitle('نموذج جديد للفواتير')?.innerHTML.includes('🧾')))
-check('title rule applied per-row color var', byTitle('نموذج جديد للفواتير')?.getAttribute('style')?.includes('--hms-icon-rule: #f97316'))
-check('profile rule hid the row', byTitle('تحتاج موافقتك')?.getAttribute('data-hms-hidden') === '1')
+check('title rule matched (regex over a non-Latin title)', Boolean(byTitle(ARABIC_TITLE)?.innerHTML.includes('🧾')))
+check('title rule applied per-row color var', byTitle(ARABIC_TITLE)?.getAttribute('style')?.includes('--hms-icon-rule: #f97316'))
+check('profile rule hid the row', byTitle('Waiting for your approval')?.getAttribute('data-hms-hidden') === '1')
 
 /* ------------------------------------------------- 10. colors + codicon mode */
 await boot({
@@ -282,7 +282,7 @@ await boot(
   { on: true, icons: { mode: 'emoji' }, sessionOverrides: { 'odoo::نموذج جديد للفواتير': { icon: '🧾' } } },
   { rows: DEFAULT_ROWS }
 )
-check('session override applies to that conversation only', Boolean(byTitle('نموذج جديد للفواتير')?.innerHTML.includes('🧾')))
+check('session override applies to that conversation only', Boolean(byTitle(ARABIC_TITLE)?.innerHTML.includes('🧾')))
 check('other rows keep their state icon', Boolean(byTitle('Deploy Hermes update')?.innerHTML.includes('⚡')))
 
 /* the ✦ button is injected into every row's actions column */
@@ -311,11 +311,11 @@ const star2 = byTitle('Odoo sync report')?.querySelector('.hms-rowbtn')
 star2?.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true, cancelable: true, clientX: 40, clientY: 200 }))
 const fresh = doc.querySelector('.hms-menu')
 const backBtn = fresh
-  ? Array.from(fresh.querySelectorAll('.hms-menu-act')).find(node => /Back to the state icon|متابعة الحالة/.test(node.textContent))
+  ? Array.from(fresh.querySelectorAll('.hms-menu-act')).find(node => node.textContent.includes('Back to the state icon'))
   : null
 backBtn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
 await new Promise(resolve => setTimeout(resolve, 200))
-check('«متابعة الحالة» clears the override', !(saved.filter(e => e.key === 'config').at(-1)?.value?.sessionOverrides?.['odoo::Odoo sync report']), JSON.stringify(saved.filter(e => e.key === 'config').at(-1)?.value?.sessionOverrides))
+check('back-to-state clears the override', !(saved.filter(e => e.key === 'config').at(-1)?.value?.sessionOverrides?.['odoo::Odoo sync report']), JSON.stringify(saved.filter(e => e.key === 'config').at(-1)?.value?.sessionOverrides))
 check('clearing one override keeps the others', saved.filter(e => e.key === 'config').at(-1)?.value?.sessionOverrides?.['odoo::نموذج جديد للفواتير']?.icon === '🧾')
 check('the row falls back to its state icon', !byTitle('Odoo sync report')?.querySelector('.hms-icon'))
 check('menu closes on outside pointerdown', (() => {
@@ -401,10 +401,17 @@ check('lead disabled → the core dot is untouched', !dotLead?.hasAttribute('dat
 check('ctx.i18n.register received both bundles', Boolean(SDK.pluginI18n) && renderToStaticMarkup(await registrations.find(e => e.area === SDK.PANES_AREA).render()).includes('Icons'))
 SDK.pluginI18n.locale = 'ar'
 const paneAr = renderToStaticMarkup(await registrations.find(e => e.area === SDK.PANES_AREA).render())
+/* These two Arabic literals are the `ar` bundle's own strings (localization
+ * data), asserted only to prove the locale switch works. */
 check('pane follows the active locale (ar)', paneAr.includes('أيقونات') && !paneAr.includes('>Icons<'), paneAr.slice(0, 80))
 SDK.pluginI18n.locale = 'en'
 const paneEn = renderToStaticMarkup(await registrations.find(e => e.area === SDK.PANES_AREA).render())
 check('pane follows the active locale (en)', paneEn.includes('>Icons<'))
+check('pane offers a Help tab', paneEn.includes('>Help<'))
+check('every locale bundle covers the help steps', (() => {
+  const bundles = SDK.pluginI18nBundles('session-styler')
+  return ['help1', 'help2', 'help3', 'help4', 'help5', 'help6'].every(key => typeof bundles.en?.[key] === 'string' && typeof bundles.ar?.[key] === 'string' && bundles.ar[key] !== bundles.en[key])
+})())
 
 /* --------------------------------------- 18. settings travel between machines */
 await boot({ on: true, icons: { mode: 'emoji' }, sync: { on: true } }, { rows: DEFAULT_ROWS })
@@ -430,7 +437,7 @@ await boot(
 await new Promise(resolve => setTimeout(resolve, 1800))
 check('a fresh machine restores the per-conversation icons from the profile', byTitle('Deploy Hermes update')?.querySelector('.hms-icon')?.textContent === '🚀', `icon=${byTitle('Deploy Hermes update')?.querySelector('.hms-icon')?.textContent}`)
 check('a fresh machine restores the style settings too', styleNode()?.textContent.includes('--hms-icon-size') && doc.querySelectorAll('.hms-icon').length >= 3, String(doc.querySelectorAll('.hms-icon').length))
-check('the restore reports itself', SDK.notifications.some(n => (n.message || '').includes('restored') || (n.message || '').includes('استرجع') || (n.message || '').includes('بروفايل')), JSON.stringify(SDK.notifications.at(-1)))
+check('the restore reports itself', SDK.notifications.some(n => (n.message || '').includes('restored')), JSON.stringify(SDK.notifications.at(-1)))
 
 console.log('\nSession Styler — plugin harness\n' + '='.repeat(46))
 for (const result of results) {

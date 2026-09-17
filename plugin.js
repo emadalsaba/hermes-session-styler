@@ -49,6 +49,21 @@ import { jsx, jsxs } from 'react/jsx-runtime'
 
 const MESSAGES = {
   en: {
+    "help6": "The plugin follows the app language automatically (Arabic / English bundles).",
+    "help5": "After a Hermes update run scripts/check-hooks.sh; on DRIFT paste the new selector in Advanced → Save hooks.",
+    "help4": "Settings travel: they are mirrored into the profile on the server, so a new machine restores them (Advanced → sync).",
+    "help3": "Branch children inherit their parent icon (Sessions tab → branch inheritance).",
+    "help2": "The leading mark is two parts: the conversation icon, then its state beside it. Pick the layout in the Icons tab.",
+    "help1": "Change one conversation: hover its row, press ✦, pick an icon (or ⌘K → “icon for the active conversation”).",
+    "helpIntro": "Quick guide",
+    "tabHelp": "Help",
+    "rowActiveTag": "active",
+    "rowBranchTag": "branch",
+    "badJson": "invalid JSON",
+    "zeroRowsToast": "no session rows matched (rows: 0) — open the pane → Advanced",
+    "tuneHint": "⌘K to tune",
+    "iconsWord": "icons",
+    "rowsWord": "rows",
     "tabSessions": "Sessions",
     "tabIcons": "Icons",
     "tabColors": "Colors",
@@ -184,6 +199,21 @@ const MESSAGES = {
     "syncPortableNote": "Per-conversation icons are keyed by <profile>::<title> and mirrored into the profile’s ui_meta on the gateway, so another machine connected to the same profile restores them on load."
 },
   ar: {
+    "help6": "الإضافة تتبع لغة التطبيق تلقائيًا (حزمة عربية وإنجليزية).",
+    "help5": "بعد أي تحديث لـ Hermes شغّل scripts/check-hooks.sh، وعند DRIFT الصق المُحدِّد الجديد في «متقدم» ثم احفظ.",
+    "help4": "الإعدادات تنتقل: تُحفظ في البروفايل على السيرفر فيستعيدها أي جهاز جديد (متقدم → مزامنة).",
+    "help3": "المحادثة الفرعية ترث أيقونة الأم (تبويب «جلسات» → وراثة أيقونة المحادثة الأم).",
+    "help2": "المقدّمة جزءان: أيقونة المحادثة ثم حالتها بجانبها. اختر الشكل من تبويب «أيقونات».",
+    "help1": "لتغيير محادثة واحدة: مرّر على صفها، اضغط ✦، واختر أيقونة (أو ⌘K → «أيقونة المحادثة المفتوحة»).",
+    "helpIntro": "دليل سريع",
+    "tabHelp": "دليل",
+    "rowActiveTag": "مفتوحة",
+    "rowBranchTag": "فرعية",
+    "badJson": "JSON غير صالح",
+    "zeroRowsToast": "لم يُعثر على صفوف الجلسات (rows: 0) — افتح اللوحة → متقدم",
+    "tuneHint": "⌘K للتحكم",
+    "iconsWord": "أيقونة",
+    "rowsWord": "صف",
     "tabSessions": "جلسات",
     "tabIcons": "أيقونات",
     "tabColors": "ألوان",
@@ -337,7 +367,7 @@ function t(key, ...args) {
 }
 
 const ID = 'session-styler'
-const VERSION = '1.1.0'
+const VERSION = '1.2.1'
 const STYLE_ID = 'hermes-session-styler-style'
 const STORE_KEY = 'config'
 
@@ -474,7 +504,7 @@ function findShellByTitle(title) {
   return null
 }
 const $stats = atom({ on: true, rows: 0, styled: 0, hook: '—', states: {}, profiles: [], warnings: [], lastRun: 0, error: '' })
-/** Snapshot of the rows as last annotated — powers the pane's «جلسات» tab. */
+/** Snapshot of the rows as last annotated — powers the pane's Sessions tab. */
 const $rows = atom([])
 
 let store = null /* plugin-scoped persistence, set in register() */
@@ -1724,7 +1754,8 @@ function StylerPane() {
           { id: 'colors', label: T('tabColors') },
           { id: 'size', label: T('tabSize') },
           { id: 'rules', label: T('tabRules') },
-          { id: 'adv', label: T('tabAdvanced') }
+          { id: 'adv', label: T('tabAdvanced') },
+          { id: 'help', label: T('tabHelp') }
         ],
         value: tab
       }),
@@ -1794,7 +1825,7 @@ function StylerPane() {
                             jsx('span', { className: 'truncate text-[0.6875rem]', children: entry.title || t('noTitle') }),
                             jsx('span', {
                               className: 'truncate text-[0.5625rem] text-(--ui-text-quaternary)',
-                              children: `${entry.state} · ${entry.profile || '—'}${entry.branch ? ' · فرعية' : ''}${entry.selected ? ' · مفتوحة' : ''} · ${entry.source || '—'}`
+                              children: `${entry.state} · ${entry.profile || '—'}${entry.branch ? ` · ${T('rowBranchTag')}` : ''}${entry.selected ? ` · ${T('rowActiveTag')}` : ''} · ${entry.source || '—'}`
                             })
                           ]
                         }),
@@ -1950,7 +1981,7 @@ function StylerPane() {
               }),
               STATES.map(state =>
                 jsx(Field, {
-                  label: `${STATE_LABEL[state]} — نقطة`,
+                  label: `${T(`state${state.charAt(0).toUpperCase()}${state.slice(1)}`)} — ${T('stateDot')}`,
                   children: jsx(ColorField, {
                     onChange: value => setConfig({ colors: { states: { [state]: value } } }),
                     value: cfg.colors.states?.[state] || ''
@@ -2279,7 +2310,7 @@ function StylerPane() {
                         setConfig(parsed)
                         host.notify({ kind: 'info', message: t('imported') })
                       } catch (err) {
-                        host.notify({ kind: 'error', message: `JSON غير صالح: ${(err && err.message) || err}` })
+                        host.notify({ kind: 'error', message: `${t('badJson')}: ${(err && err.message) || err}` })
                       }
                     },
                     size: 'xs',
@@ -2291,6 +2322,32 @@ function StylerPane() {
               jsx('div', {
                 className: 'text-[0.625rem] text-(--ui-text-quaternary)',
                 children: `${ID} v${VERSION} · hooks overridden: ${stats.hook}`
+              })
+            ]
+          })
+        : null,
+      tab === 'help'
+        ? jsxs('div', {
+            className: 'flex flex-col gap-2',
+            children: [
+              jsx('div', { className: 'text-[0.625rem] uppercase text-(--ui-text-quaternary)', children: T('helpIntro') }),
+              ['help1', 'help2', 'help3', 'help4', 'help5', 'help6'].map(key =>
+                jsxs(
+                  'div',
+                  {
+                    className: 'flex gap-1.5',
+                    children: [
+                      jsx('span', { className: 'text-(--ui-text-quaternary)', children: '•' }),
+                      jsx('span', { className: 'min-w-0 flex-1 text-[0.625rem] leading-4 text-(--ui-text-secondary)', children: T(key) })
+                    ]
+                  },
+                  key
+                )
+              ),
+              jsx(Separator, {}),
+              jsx('div', {
+                className: 'text-[0.625rem] text-(--ui-text-quaternary)',
+                children: `${ID} v${VERSION} · ${T('tabHelp')}`
               })
             ]
           })
@@ -2432,9 +2489,9 @@ export default {
       const stats = $stats.get()
       if (!stats.on) return
       if (stats.rows > 0) {
-        host.notify({ kind: 'info', message: `Session Styler v${VERSION} · ${stats.rows} صف · ${stats.styled} أيقونة — ⌘K للتحكم` })
+        host.notify({ kind: 'info', message: `Session Styler v${VERSION} · ${stats.rows} ${t('rowsWord')} · ${stats.styled} ${t('iconsWord')} — ${t('tuneHint')}` })
       } else {
-        host.notify({ kind: 'warn', message: `Session Styler v${VERSION}: لم يُعثر على صفوف الجلسات (rows: 0) — افتح اللوحة → متقدم` })
+        host.notify({ kind: 'warn', message: `Session Styler v${VERSION}: ${t('zeroRowsToast')}` })
       }
     }, 1400)
 
@@ -2485,7 +2542,7 @@ export default {
         data: {
           id: `${ID}.current`,
           label: t('cmdCurrent'),
-          keywords: ['icon', 'session', 'conversation', t('ruleIconPlaceholder'), 'محادثة'],
+          keywords: ['icon', 'session', 'conversation', 'per-conversation'],
           run: () => {
             const shell = document.querySelector('[data-hms-selected]')
             if (!shell) {
@@ -2502,7 +2559,7 @@ export default {
         data: {
           id: `${ID}.sync`,
           label: t('cmdSync'),
-          keywords: ['sync', 'profile', 'machine', 'مزامنة'],
+          keywords: ['sync', 'profile', 'machine'],
           run: () => void pushSync({})
         }
       },
@@ -2539,12 +2596,12 @@ export default {
         data: {
           id: `${ID}.hooks`,
           label: t('cmdHooks'),
-          keywords: ['hooks', 'check', 'تحديث'],
+          keywords: ['hooks', 'check', 'selectors'],
           run: () => {
             const stats = $stats.get()
             host.notify({
               kind: stats.rows > 0 ? 'info' : 'error',
-              message: stats.rows > 0 ? `hooks OK — ${stats.rows} صف · ${stats.styled} أيقونة` : t('zeroRows')
+              message: stats.rows > 0 ? `${t('hooksOk')} — ${stats.rows} ${t('rowsWord')} · ${stats.styled} ${t('iconsWord')}` : t('zeroRows')
             })
           }
         }

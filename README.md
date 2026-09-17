@@ -1,88 +1,97 @@
-# Session Styler — Hermes Desktop plugin
+# Session Styler — a Hermes Desktop plugin
 
-**Customizes the Hermes Desktop session list (the sidebar): icons, colors, and sizes.**
-يقوم بتخصيص قائمة الجلسات في تطبيق Hermes Desktop (الشريط الجانبي): الأيقونات والألوان والأحجام.
+Customizes the **session list** (the sidebar) of the Hermes Desktop app: per-conversation icons,
+status marks, colors and sizes — without patching a single app file.
 
-- Version / الإصدار: **1.2.0**
-- Plugin id / المُعرّف: `session-styler`
-- SDK: `@hermes/plugin-sdk` (desktop app plugin — no build step, single ESM file)
-- Verified against / مُتحقَّق منه على: Hermes Desktop build `6005aa1` (2026-09-17)
-
-> **الإصدار 1.2.0**: (1) الأيقونة المخصّصة للمحادثة **لا تُستبدل** بحالة المحادثة — الحالة تظهر
-> **بجانبها** كمؤشر صغير (نقطة أو أيقونة أو بلا)، (2) الإضافة تتكلم **لغة التطبيق** (عربي/إنجليزي)
-> تلقائيًا، (3) إعداداتك وأيقونات محادثاتك **تُحفظ في البروفايل على السيرفر** — فعند تثبيت الإضافة على
-> جهاز جديد والدخول بنفس البروفايل تعود كما هي.
->
-> **1.2.0**: a custom per-conversation icon is never replaced by the state — the state shows **beside**
-> it; the plugin follows the app's language (ar/en bundles); and settings are mirrored into the
-> profile's `ui_meta` on the gateway, so a new machine restores them on load.
->
-> **الإصدار 1.1.0**: لكل محادثة أيقونتها — اضغط الزر **✦** الذي يظهر عند المرور على الصف
-> (أو الأمر «Session Styler: أيقونة المحادثة المفتوحة» في ⌘K) واختر الأيقونة أو اللون أو أخفِ الجلسة.
-> والمحادثة الفرعية (ذات الجذع └─) ترث أيقونة المحادثة الأم تلقائيًا. وللمحادثة المفتوحة شكلٌ خاص
-> تضبطه من تبويب «جلسات».
->
-> **1.1.0**: per-conversation icons from the row itself (hover **✦** → icon / color / hide), branch
-> children inherit the parent's icon by default, and the conversation you are in can carry its own
-> look. Run `check-hooks.sh` after an update — it now also watches the branch-stem and
-> active-row anchors.
->
-> **الإصدار 1.0.1**: الإضافة تُظهر الأيقونات فورًا بعد التحميل (وضع «إيموجي» افتراضيًا)، وتُظهر
-> إشعارًا عند التحميل يقول كم صفًا وكم أيقونة طُبّقت — لأن إضافة تعمل بلا تغيير مرئي لا يمكن
-> تمييزها عن إضافة لم تُحمَّل. لتغيير الأيقونات أو إرجاع النقاط الأصلية: افتح اللوحة → «أيقونات».
->
-> **1.0.1**: ships with emoji icons already ON (the quiet core dot is kept for idle rows), and
-> announces itself in a toast on load with its match count. A plugin that loads but changes
-> nothing on screen is indistinguishable from one that never loaded.
+- Version: **1.2.1**
+- Plugin id: `session-styler`
+- SDK: `@hermes/plugin-sdk` (desktop app plugin — one plain ESM file, no build step)
+- Verified against Hermes Desktop build `6005aa1` / Hermes `main`
 
 ---
 
-## ما الذي يفعله؟ (Arabic)
+## What it does
 
-يستبدل النقطة الملوّنة الصغيرة التي تسبق كل جلسة بأيقونة تختارها أنت، ويلوّن النقاط والنصوص
-وخلفية الصف، ويكبّر أو يصغّر ارتفاع الصف وحجم الخط — كل ذلك من داخل التطبيق، بلا تعديل ملفات
-التطبيق نفسه.
-
-أربع مجموعات تحكم:
-
-| التبويب | ماذا يضبط |
+| Pane tab | Controls |
 |---|---|
-| **جلسات** | قائمة الجلسات الظاهرة الآن، مع تخصيص كل واحدة (أيقونة/لون/إخفاء)، ومفتاح وراثة المحادثة الأم، وشكل المحادثة المفتوحة |
-| **أيقونات** | شكل المقدّمة: «أيقونة + حالة» (الافتراضي) أو «أيقونة فقط» أو «نقطة فقط»، ومؤشر الحالة (نقطة/أيقونة/بلا) وحجمه، ولكل حالة (خامل، يعمل، متوقف، ينتظر إجابتك، غير مقروء، خلفية، مسودة): إيموجي أو أيقونة codicon بدل النقطة، مع حجم الأيقونة |
-| **ألوان** | لون نقطة كل حالة، لون الأيقونة، لون العنوان، لون الأرقام/الوقت، وتلوين خلفية الصف بشدة قابلة للضبط |
-| **أحجام** | ارتفاع الصف، حجم العنوان، حجم الأرقام، خلية الأيقونة، المسافة، الحواف + قوالب (مضغوط/واسع) + **قياس الحالي** |
-| **قواعد** | مطابقة حسب عنوان الجلسة (نص أو regex)، أو البروفايل، أو الحالة → أيقونة/لون/إخفاء الصف |
+| **Sessions** | branch inheritance on/off, the hover **✦** button, the active conversation's own look (icon, color, size), and a list of the visible conversations with a Customize button per row |
+| **Icons** | icon mode (core dot / emoji / codicon), icon size, the **leading mark layout** (icon + state, icon only, dot only), the **state indicator** beside it (dot / per-state icon / none) with its own size, and a per-state icon for every status |
+| **Colors** | dot color per state, icon color, title color, meta/age color, and an optional row background tint (color + strength) |
+| **Sizes** | row height, title size, meta size, icon-cell width, gap, corner radius — plus Compact/Roomy presets and *Measure current* (seeds the sliders from the live app) |
+| **Rules** | match a row by title (text or regex), owning profile, or state → set an icon, a color, or hide the row |
+| **Advanced** | hook selector overrides, cross-machine sync, JSON export/import, reset |
+| **Help** | a short in-app usage guide, rendered in the app's language |
 
-أوامر لوحة الأوامر (⌘K / Ctrl+K): تشغيل/إيقاف، صفوف مضغوطة، صفوف واسعة، أيقونات إيموجي،
-استعادة الافتراضي، نسخ التشخيص، فحص المُحدِّدات.
+Surfaces inside the app:
 
-شريحة في شريط الحالة تعرض `صفوف/أيقونات` — الضغط عليها يبدّل التشغيل.
+- **✦ on each row** (appears on hover) — opens a menu bound to that conversation: icon grid, custom
+  glyph, icon color, hide, and *Back to the state icon* to clear it.
+- **⌘K / Ctrl+K commands** — on/off, compact rows, roomy rows, emoji state icons, *icon for the
+  active conversation*, sync now, reset, copy diagnostics, check selectors.
+- **Status-bar chip** — `rows/icons`; click to toggle the plugin.
+- **Pane** — registered as a right-side pane; drag it anywhere, it tabs like a core pane.
 
-### لماذا لا ينكسر بعد تحديث Hermes؟
+### The leading mark is two parts
 
-1. الإضافة ملف واحد خارج التطبيق: `$HERMES_HOME/desktop-plugins/session-styler/plugin.js`.
-   تحديث العميل (client) يستبدل مجلد التطبيق ولا يمسّ هذا المسار، وتحديث الخادم/البروفايل لا يمسّه أيضًا.
-2. لا تُرقّع أي ملف من ملفات التطبيق — كل شيء يُحقن وقت التشغيل ويُزال عند الإطفاء.
-3. كل مُحدِّد DOM (hook) موضوع في جدول واحد مع بدائل: إن غيّر تحديثٌ البنية، يُجرَّب البديل تلقائيًا.
-4. تبويب **متقدم** يقبل مُحدِّدًا جديدًا وتُحدِّثه من داخل التطبيق بلا تعديل الكود.
-5. سطر التشخيص يعرض دائمًا: عدد الصفوف، أي hook نجح، الحالات، البروفايلات — فيظهر الانحراف فورًا.
-6. سكربت `scripts/check-hooks.sh` يفحص — بعد أي تحديث — أن كل نقطة اعتماد ما زالت موجودة في
-   مصدر التطبيق، ويقول لك بالضبط أي ملف/سطر تغيّر.
+A conversation's own icon sits **next to** its state, never instead of it:
+
+| Layout | What you see |
+|---|---|
+| `icon + state` (default) | your icon, plus the state dot smaller beside it |
+| `icon only` | your icon alone |
+| `dot only` | exactly as core draws it |
+
+The state mark beside it can be the core dot, a per-state icon, or nothing — with its own size and
+gap. So a conversation with a custom icon keeps that icon **and** keeps its status.
+
+### Per-conversation icons
+
+Keyed `<profile>::<title>`, set from the row's ✦ menu or the pane's Sessions tab, and they win over
+rules. Because the sidebar exposes no session id to a plugin, the title is the key — renaming a
+conversation drops its override (the Help tab says so).
+
+### Branch inheritance
+
+A branch child (rendered with a `└─` / `├─` stem under its parent) inherits its parent's icon and
+color, through a branch-of-a-branch chain; a child with its own override still wins.
+
+### Language
+
+The plugin ships its own `ar` + `en` bundles through `ctx.i18n.register` and follows the app's active
+locale (the app also offers `zh`, `zh-hant`, `ja`, `ru`, which fall back to English). Adding a locale
+is one more bundle in `MESSAGES`.
 
 ---
 
-## Install / التثبيت
+## Why it survives updates
+
+1. The plugin is one file **outside** the app bundle — client or backend updates cannot remove it.
+2. Nothing on disk is patched: row annotations and one `<style>` element are injected at runtime and
+   removed the moment the plugin is switched off.
+3. Every DOM anchor lives in a hooks table **with fallbacks**, and the pane's Advanced tab accepts a
+   new selector at runtime — no code edit, no reinstall.
+4. The diagnostics line always reports rows matched, which hook won, the states and profiles seen,
+   and when the file was last loaded.
+5. `scripts/check-hooks.sh` diffs every anchor against a Hermes checkout (`--src`) or GitHub `main`
+   (`--remote`) after any update: 21 anchors, `OK`/`DRIFT` per anchor.
+6. A reloaded plugin hands its previous incarnation's teardown over (`ctx.onDispose` plus a window
+   marker) and marks it dead, so two instances can never fight over the same rows.
+
+---
+
+## Install
 
 ### 1. From this repo (any machine)
 
 ```bash
 git clone https://github.com/emadalsaba/hermes-session-styler.git
 cd hermes-session-styler
-./scripts/install.sh                 # into $HERMES_HOME/desktop-plugins/session-styler/
-./scripts/install.sh --home /path/to/hermes-home    # explicit home
+./scripts/install.sh                                 # into $HERMES_HOME/desktop-plugins/session-styler/
+./scripts/install.sh --home /path/to/hermes-home     # explicit home
+./scripts/install.sh --uninstall                     # remove
 ```
 
-The folder name must stay `session-styler` (it must equal the plugin `id`).
+The folder name must stay `session-styler` (it has to equal the plugin `id`).
 
 ### 2. Onto a remote client (e.g. the desktop app on a Windows box)
 
@@ -95,83 +104,79 @@ The folder name must stay `session-styler` (it must equal the plugin `id`).
   --dest 'C:/Users/<you>/AppData/Local/hermes/desktop-plugins/session-styler'
 ```
 
-It copies, then verifies the SHA-256 on both sides and prints the result.
-
-> **Plugins are per machine — and the app's home is the LOCAL one.** A desktop plugin is loaded
-> from the local `<HERMES_HOME>/desktop-plugins/` of the box running the app, regardless of which
-> backend/profile the window is connected to. If the user works on two machines, install on both
-> (`--all`), and differentiate the machines by looking for the running `Hermes.exe` / the
-> `desktop-plugins` folder — not by asking which profile is active.
->
-> The sync script is shell-agnostic on purpose: a Windows `ssh` remote may still answer `uname`
-> (Git's `uname.exe` on PATH) while its ssh shell is `cmd.exe`, so it proves each step by outcome
-> (`cd "<path>" && echo OK`, a 64-hex hash) instead of trusting a probe.
+It copies, verifies SHA-256 on both sides, and exits non-zero on any mismatch.
 
 ### 3. Manually
 
 Copy `plugin.js` to `<HERMES_HOME>/desktop-plugins/session-styler/plugin.js`
 (Windows: `%LOCALAPPDATA%\hermes\desktop-plugins\session-styler\plugin.js`).
 
-Then in the app: **⌘K / Ctrl+K → “Reload desktop plugins”** (a new folder is picked up
-automatically within a few seconds; the command forces it). The plugin also appears in
-**Settings → Plugins**, where it can be disabled or its folder revealed.
+Then in the app: **⌘K / Ctrl+K → “Reload desktop plugins”** (a new folder is picked up within seconds
+anyway; the command forces it). The plugin also appears in **Settings → Plugins**, where it can be
+disabled or its folder revealed.
+
+> Plugins are **per machine** and load from the **local** hermes home of the box running the app,
+> regardless of which backend or profile the window is connected to — so install it on every machine
+> the user works on.
 
 ---
 
-## Use / الاستخدام
+## Settings that follow you to a new machine
 
-Open the **session styler** pane (registered as a right-side pane — drag it anywhere, it becomes
-a tab like any core pane). The pane has a live preview built from the *real* row markup, so what
-you see is what the sidebar does.
+`ctx.storage` is `window.localStorage`, which is per machine. Per-conversation icons and every style
+setting are therefore also mirrored into the **active profile's `ui_meta` on the gateway**
+(`profiles.configure`, the store Bot Mode uses), keyed `session-styler`.
 
-Status-bar chip: `<rows>/<icons>` — click to toggle the whole plugin.
+- Install the plugin on a new machine and connect to the same profile → the same icons and settings
+  come back on load (and the app says so).
+- Local edits are stamped and pushed (debounced); a newer server blob wins over an older local one.
+- Pane → **Advanced** → *Sync across machines* shows the state, with a **Sync now** button; there is
+  also a ⌘K command.
 
-## After a Hermes update / بعد أي تحديث
+---
+
+## After a Hermes update
 
 ```bash
-./scripts/check-hooks.sh --src "C:/Users/<you>/AppData/Local/hermes/hermes-agent"   # local app source
-./scripts/check-hooks.sh --remote                                                   # latest main from GitHub
+cd hermes-session-styler && ./scripts/check-hooks.sh --remote
 ```
 
-- All `OK` → nothing to do; update the app and keep using it.
-- Any `DRIFT` → the app renamed something. Open the pane → **متقدم**, paste the new selector for
-  that hook, press **حفظ المُحدِّدات**. No file editing, no reinstall. Send the drift output along
-  with a bug report and the default table will be updated in the next release.
+- All `OK` → nothing to do; keep using it.
+- Any `DRIFT` → the app renamed something. Open the pane → **Advanced**, paste the new selector for
+  that hook, press **Save hooks**. No file editing, no reinstall. A drift report with the output is
+  welcome as an issue.
 
-## Troubleshooting / حل المشاكل
+## Troubleshooting
 
 | Symptom | Fix |
 |---|---|
 | Pane/chip missing | ⌘K → “Reload desktop plugins”; check Settings → Plugins is on; the folder must be named `session-styler` |
-| `rows: 0` in the diagnostics line | the row hook drifted — run `check-hooks.sh`, then set the selector in **متقدم** |
-| Icons show but the dot is still there | a rule/state icon is set but the lead hook drifted; check `lead` in **متقدم** |
-| Colors don't apply | enable **تشغيل تعديل الألوان** first; an empty field means "keep the core color" |
-| Everything looks reset after a reinstall | settings live in plugin storage (`hermes.plugin.session-styler.config`) — export JSON from **متقدم** before reinstalling, paste it back after |
-| Did the app actually load it? (toast on load + `load:` line) | the pane's diagnostics line shows `load: <version> @ <timestamp>` — that value is written by the plugin on load, so if it is missing or stale the file was not picked up |
+| `rows: 0` in the diagnostics line | the row hook drifted — run `check-hooks.sh`, then set the selector in **Advanced** |
+| Icon shows but the status dot is gone | raise the state indicator (pane → Icons → *State indicator* = dot or icon) |
+| Colors don't apply | enable *Enable colour overrides* first; an empty field means "keep the core color" |
+| Did the app load it? | the diagnostics line shows `load: <version> @ <timestamp>` — that value is written on load |
+| Settings look reset after a reinstall on another machine | that machine has an older copy: enable sync in **Advanced**, then press **Sync now** |
 
 ## Uninstall
 
 Delete `<HERMES_HOME>/desktop-plugins/session-styler/`, or turn it off in Settings → Plugins.
-Turning it off removes the injected stylesheet, every annotation, and every injected icon
-immediately — the app is left exactly as it was.
+Switching it off removes the injected stylesheet, every annotation, the ✦ buttons and every injected
+icon immediately — the app is left exactly as it was.
 
 ---
 
 ## How it works (for maintainers)
 
-1. **Annotate** — every pass walks the row hook, resolves each row's status from the dot's own
-   class tokens (`session-status-dot.tsx`), reads the owning profile from the row's profile chip,
-   and stamps `data-hms-row`, `data-hms-state`, `data-hms-profile`, `data-hms-dot`.
-2. **Style** — one `<style id="hermes-session-styler-style">` element carries `:root` variables
-   plus rules keyed off those annotations. Nothing is patched on disk; no colors are hardcoded
-   (theme variables and color-mix only).
-3. **Icon** — in emoji/codicon mode a `<span class="hms-icon">` is inserted into the row's lead
-   cell and the core dot is hidden by a sibling rule; `dot` mode never touches the DOM.
-4. **Stay in sync** — a `MutationObserver` re-runs the pass on real DOM changes (our own writes
-   are recognized and ignored, so there is no feedback loop), with a 4 s safety net that also
-   restores the stylesheet if something removes it.
+1. **Annotate** — each pass walks the row hook, resolves every row's status from the status dot's own
+   class tokens, reads the owning profile from the row's profile chip, detects a branch stem, and
+   stamps `data-hms-*` attributes plus its own leading mark.
+2. **Style** — one `<style id="hermes-session-styler-style">` element carries `:root` variables and
+   rules keyed off those annotations. No colors are hardcoded; theme variables and `color-mix` only.
+3. **Stay in sync** — a `MutationObserver` re-runs the pass on real DOM changes (our own writes are
+   recognized and ignored, so there is no feedback loop), with a 4 s safety net that also restores the
+   stylesheet if something removes it.
 
-### Hooks this plugin depends on
+### Anchors this plugin depends on
 
 | Hook | Default selector / anchor |
 |---|---|
@@ -181,31 +186,34 @@ immediately — the app is left exactly as it was.
 | `lead` | `span[class*="place-items-center"][class*="size-3.5"]` |
 | `dot` | `span[class*="rounded-full"][class*="size-1"]` |
 | `profileGlyph` | `[data-row-actions] [role="img"][aria-label]` |
+| `actions` | `[data-row-actions]` |
+| `stem` | `span[class*="font-mono"][class*="text-[0.625rem]"]` containing `└─` / `├─` |
 
 Status tokens read from the dot: `amber-500` → needs input, `bg-(--ui-accent)` → working,
-`border-(--ui-accent)` → stalled, `border-(--ui-text-tertiary)` → background,
-`bg-(--ui-success)` → unread, `border-(--ui-text-quaternary)` → draft, `size-1` → idle.
+`border-(--ui-accent)` → stalled, `border-(--ui-text-tertiary)` → background, `bg-(--ui-success)` →
+unread, `border-(--ui-text-quaternary)` → draft, `size-1` → idle. The selected conversation's shell
+carries `bg-(--ui-row-active-background)`.
 
-## Development / التطوير
+## Development
 
-`test/` is a dependency-free harness that boots `plugin.js` inside jsdom against a fixture of the
-real session-row markup (copied from the app source at build `6005aa1`), with a stub
-`@hermes/plugin-sdk`:
+`test/` is a dependency-light harness that boots `plugin.js` inside jsdom against a fixture of the
+real session-row markup, with a stub `@hermes/plugin-sdk` (plus a canned `profiles.list` /
+`profiles.configure`):
 
 ```bash
 cd test
-npm install          # jsdom + react only
+npm install
 node run-tests.mjs ../plugin.js
 ```
 
-101 assertions: contribution areas, stylesheet generation, per-state detection, icon injection,
-profile detection, rules (title regex / profile / hide), hook fallback, teardown, persistence,
-the load beacon, per-conversation overrides through the ✦ menu, branch inheritance (child, deep
-child, override-wins, inheritance-off), the selected-conversation look, the hot-reload handover,
-and "drifted DOM does not throw".
+103 assertions: contributions, stylesheet generation, per-state detection, the three leading-mark
+layouts, icon injection, per-conversation overrides through the ✦ menu, branch inheritance (child,
+deep child, override-wins, inheritance off), the active-conversation look, the locale switch, the
+settings mirror (push and restore on a fresh machine), hook fallback, teardown, the hot-reload
+handover, persistence, and "a drifted DOM does not throw".
 
-The plugin file is loaded **uncompiled** by the app: plain ESM, `jsx()` calls (never JSX syntax),
-and only `@hermes/plugin-sdk`, `react`, `react/jsx-runtime` may be imported.
+The file is loaded **uncompiled** by the app: plain ESM, `jsx()` calls (never JSX syntax), and only
+`@hermes/plugin-sdk`, `react`, `react/jsx-runtime` may be imported.
 
 ## License
 
