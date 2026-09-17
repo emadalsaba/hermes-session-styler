@@ -107,6 +107,9 @@ check "profile label en" apps/desktop/src/i18n/en.ts 'ownedByProfile'
 check "profile label ar" apps/desktop/src/i18n/ar.ts 'ownedByProfile'
 check "working attr"    apps/desktop/src/app/chat/sidebar/session-row.tsx "data-working={liveTurn ? 'true' : undefined}"
 check "actions column"  apps/desktop/src/app/chat/sidebar/chrome.tsx 'data-row-actions'
+check "branch stem"     apps/desktop/src/app/chat/session-status-dot.tsx 'font-mono text-[0.625rem] leading-none'
+check "branch stem arg" apps/desktop/src/app/chat/session-status-dot.tsx 'branchStem'
+check "active row class" apps/desktop/src/app/chat/sidebar/session-row.tsx 'bg-(--ui-row-active-background)'
 
 echo "-----------------------------------------------------------"
 echo "anchors OK: $PASS    drifted: $FAIL"

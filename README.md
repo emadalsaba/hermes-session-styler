@@ -3,11 +3,21 @@
 **Customizes the Hermes Desktop session list (the sidebar): icons, colors, and sizes.**
 يقوم بتخصيص قائمة الجلسات في تطبيق Hermes Desktop (الشريط الجانبي): الأيقونات والألوان والأحجام.
 
-- Version / الإصدار: **1.0.1**
+- Version / الإصدار: **1.1.0**
 - Plugin id / المُعرّف: `session-styler`
 - SDK: `@hermes/plugin-sdk` (desktop app plugin — no build step, single ESM file)
 - Verified against / مُتحقَّق منه على: Hermes Desktop build `6005aa1` (2026-09-17)
 
+> **الإصدار 1.1.0**: لكل محادثة أيقونتها — اضغط الزر **✦** الذي يظهر عند المرور على الصف
+> (أو الأمر «Session Styler: أيقونة المحادثة المفتوحة» في ⌘K) واختر الأيقونة أو اللون أو أخفِ الجلسة.
+> والمحادثة الفرعية (ذات الجذع └─) ترث أيقونة المحادثة الأم تلقائيًا. وللمحادثة المفتوحة شكلٌ خاص
+> تضبطه من تبويب «جلسات».
+>
+> **1.1.0**: per-conversation icons from the row itself (hover **✦** → icon / color / hide), branch
+> children inherit the parent's icon by default, and the conversation you are in can carry its own
+> look. Run `check-hooks.sh` after an update — it now also watches the branch-stem and
+> active-row anchors.
+>
 > **الإصدار 1.0.1**: الإضافة تُظهر الأيقونات فورًا بعد التحميل (وضع «إيموجي» افتراضيًا)، وتُظهر
 > إشعارًا عند التحميل يقول كم صفًا وكم أيقونة طُبّقت — لأن إضافة تعمل بلا تغيير مرئي لا يمكن
 > تمييزها عن إضافة لم تُحمَّل. لتغيير الأيقونات أو إرجاع النقاط الأصلية: افتح اللوحة → «أيقونات».
@@ -28,6 +38,7 @@
 
 | التبويب | ماذا يضبط |
 |---|---|
+| **جلسات** | قائمة الجلسات الظاهرة الآن، مع تخصيص كل واحدة (أيقونة/لون/إخفاء)، ومفتاح وراثة المحادثة الأم، وشكل المحادثة المفتوحة |
 | **أيقونات** | لكل حالة (خامل، يعمل، متوقف، ينتظر إجابتك، غير مقروء، خلفية، مسودة): إيموجي أو أيقونة codicon بدل النقطة، مع حجم الأيقونة |
 | **ألوان** | لون نقطة كل حالة، لون الأيقونة، لون العنوان، لون الأرقام/الوقت، وتلوين خلفية الصف بشدة قابلة للضبط |
 | **أحجام** | ارتفاع الصف، حجم العنوان، حجم الأرقام، خلية الأيقونة، المسافة، الحواف + قوالب (مضغوط/واسع) + **قياس الحالي** |
@@ -178,9 +189,11 @@ npm install          # jsdom + react only
 node run-tests.mjs ../plugin.js
 ```
 
-56 assertions: contribution areas, stylesheet generation, per-state detection, icon injection,
+86 assertions: contribution areas, stylesheet generation, per-state detection, icon injection,
 profile detection, rules (title regex / profile / hide), hook fallback, teardown, persistence,
-the load beacon, and "drifted DOM does not throw".
+the load beacon, per-conversation overrides through the ✦ menu, branch inheritance (child, deep
+child, override-wins, inheritance-off), the selected-conversation look, the hot-reload handover,
+and "drifted DOM does not throw".
 
 The plugin file is loaded **uncompiled** by the app: plain ESM, `jsx()` calls (never JSX syntax),
 and only `@hermes/plugin-sdk`, `react`, `react/jsx-runtime` may be imported.

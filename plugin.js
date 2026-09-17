@@ -47,7 +47,7 @@ import { useEffect, useRef, useState } from 'react'
 import { jsx, jsxs } from 'react/jsx-runtime'
 
 const ID = 'session-styler'
-const VERSION = '1.0.1'
+const VERSION = '1.1.0'
 const STYLE_ID = 'hermes-session-styler-style'
 const STORE_KEY = 'config'
 
@@ -73,7 +73,11 @@ const HOOKS = {
   /* The status dot itself (session-status-dot.tsx). */
   dot: ['span[class*="rounded-full"][class*="size-1"]'],
   /* Owning-profile chip (ProfileTag → ProfileGlyph with role="img"). */
-  profileGlyph: ['[data-row-actions] [role="img"][aria-label]', '[role="img"][aria-label]']
+  profileGlyph: ['[data-row-actions] [role="img"][aria-label]', '[role="img"][aria-label]'],
+  /* Trailing actions column — where the plugin's own ✦ button goes. */
+  actions: ['[data-row-actions]'],
+  /* Branch stem (└─ / ├─) inside the status dot: marks a child session. */
+  stem: ['span[class*="font-mono"][class*="text-[0.625rem]"]']
 }
 
 /* Status-dot class tokens, in priority order (verified against
@@ -100,6 +104,18 @@ const DEFAULTS = {
   colors: { on: false, states: { idle: '', working: '', stalled: '', needsInput: '', unread: '', background: '', draft: '' }, icon: '', title: '', meta: '', tint: false, tintColor: '', tintStrength: 12 },
   size: { on: false, rowHeight: 26, label: 13, meta: 10, lead: 14, gap: 6, radius: 6 },
   rules: [],
+  /* Per-conversation overrides, keyed "<profile>::<title>" — set from the
+   * row's own ✦ menu, so one conversation can carry its own icon without a
+   * regex rule and without a rule that also hits its siblings. */
+  sessionOverrides: {},
+  /* A branch child (rendered with a └─/├─ stem under its parent) inherits the
+   * parent's icon unless it has an override of its own. */
+  inheritBranch: true,
+  /* The hover ✦ button in each row that opens the per-conversation menu. */
+  rowMenu: true,
+  /* Look of the conversation you are currently in (core paints the row with
+   * bg-(--ui-row-active-background)). */
+  selected: { icon: '', color: '', size: 0 },
   maxRules: 40,
   hooks: {}
 }
@@ -137,10 +153,33 @@ function merge(base, patch) {
  * Stores
  * ------------------------------------------------------------------------ */
 const $config = atom(DEFAULTS)
+
+/** The annotated shell for a given title — how the pane reaches a row's menu. */
+function findShellByTitle(title) {
+  const hooks = resolveHooks($config.get())
+  for (const sel of hooks.row) {
+    let rows = []
+    try {
+      rows = Array.from(document.querySelectorAll(sel))
+    } catch {
+      rows = []
+    }
+    for (const row of rows) {
+      if (!(row instanceof Element)) continue
+      const shell = row.parentElement instanceof Element ? row.parentElement : row
+      if (!shell.hasAttribute('data-hms-row')) continue
+      const label = row.querySelector(selList(hooks.label))
+      if ((label?.textContent || '').trim() === title) return shell
+    }
+  }
+  return null
+}
 const $stats = atom({ on: true, rows: 0, styled: 0, hook: '—', states: {}, profiles: [], warnings: [], lastRun: 0, error: '' })
+/** Snapshot of the rows as last annotated — powers the pane's «جلسات» tab. */
+const $rows = atom([])
 
 let store = null /* plugin-scoped persistence, set in register() */
-const runtime = { observer: null, timer: null, debounce: null, busy: false, disposers: [], booted: false, os: null }
+const runtime = { dead: false, observer: null, timer: null, debounce: null, busy: false, disposers: [], booted: false, os: null }
 
 /** Clipboard via the SDK's OS door (ctx.os), with the DOM API as fallback. */
 function copyToClipboard(text) {
@@ -173,8 +212,13 @@ function persist() {
   }
 }
 
-function setConfig(patch, { silent } = {}) {
-  $config.set(merge($config.get(), patch))
+/** Apply a config change. `replace` lists keys whose patch value must be
+ *  ASSIGNED rather than deep-merged — without it a deleted nested entry (a
+ *  cleared per-conversation override) comes back on the merge. */
+function setConfig(patch, { silent, replace } = {}) {
+  const next = merge($config.get(), patch)
+  for (const key of replace || []) next[key] = patch[key]
+  $config.set(next)
   persist()
   applyAll()
   if (!silent) haptic('tap')
@@ -365,6 +409,27 @@ function cssFor(cfg, hooks) {
   }
 
   rules.push('.hms-icon{display:inline-flex;align-items:center;justify-content:center;line-height:1;font-size:var(--hms-icon-size,13px);font-style:normal;}')
+  /* the row's own ✦ affordance + its menu — plain CSS on purpose: Tailwind only
+     emits classes the app itself uses, and this DOM is injected at runtime */
+  rules.push('.hms-rowbtn{display:grid;place-items:center;width:1.125rem;height:1.125rem;flex:0 0 auto;border:0;border-radius:3px;background:transparent;color:var(--ui-text-quaternary);font-size:0.6875rem;line-height:1;cursor:pointer;opacity:0;transition:opacity .12s ease,color .12s ease;}')
+  rules.push('[data-hms-row]:hover .hms-rowbtn,.hms-rowbtn:focus-visible{opacity:1;}')
+  rules.push('.hms-rowbtn[data-hms-custom="1"]{opacity:1;color:var(--ui-accent);}')
+  rules.push('.hms-menu{position:fixed;z-index:var(--z-over-modal-content,210);width:14rem;padding:0.5rem;border-radius:6px;border:1px solid var(--ui-stroke-secondary);background:color-mix(in srgb,var(--ui-bg-elevated) 96%,transparent);color:var(--ui-text-primary);box-shadow:var(--shadow-md,0 8px 24px rgb(0 0 0 / 0.35));backdrop-filter:blur(0.75rem) saturate(1.08);font-size:0.6875rem;}')
+  rules.push('.hms-menu-head{margin-bottom:0.375rem;}')
+  rules.push('.hms-menu-title{font-size:0.75rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}')
+  rules.push('.hms-menu-sub{margin-top:0.125rem;color:var(--ui-text-tertiary);font-size:0.625rem;}')
+  rules.push('.hms-menu-label{margin:0.375rem 0 0.25rem;color:var(--ui-text-quaternary);font-size:0.625rem;}')
+  rules.push('.hms-menu-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:0.125rem;}')
+  rules.push('.hms-menu-emoji{display:grid;place-items:center;height:1.25rem;border:0;border-radius:3px;background:transparent;font-size:0.8125rem;line-height:1;cursor:pointer;}')
+  rules.push('.hms-menu-emoji:hover,.hms-menu-emoji.is-active{background:var(--ui-control-active-background,color-mix(in srgb,currentColor 12%,transparent));}')
+  rules.push('.hms-menu-row{display:flex;align-items:center;gap:0.25rem;}')
+  rules.push('.hms-menu-input{min-width:0;flex:1;height:1.375rem;padding:0 0.25rem;border:1px solid var(--ui-stroke-secondary);border-radius:3px;background:transparent;color:inherit;font-size:0.6875rem;outline:none;}')
+  rules.push('.hms-menu-act{height:1.375rem;padding:0 0.375rem;border:1px solid var(--ui-stroke-secondary);border-radius:3px;background:transparent;color:inherit;font-size:0.625rem;cursor:pointer;white-space:nowrap;}')
+  rules.push('.hms-menu-act:hover{background:var(--ui-control-active-background,color-mix(in srgb,currentColor 12%,transparent));}')
+  rules.push('.hms-menu-swatch{width:1rem;height:1rem;padding:0;border:1px solid var(--ui-stroke-secondary);border-radius:3px;cursor:pointer;}')
+  rules.push('.hms-menu-swatch.is-active{outline:1px solid var(--ui-accent);outline-offset:1px;}')
+  rules.push('.hms-menu-actions{display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.5rem;}')
+  rules.push('.hms-menu-foot{margin-top:0.375rem;color:var(--ui-text-quaternary);font-size:0.5625rem;line-height:1.4;}')
   rules.push('[data-hms-hide-dot] > span:not(.hms-icon){display:none !important;}')
   rules.push('[data-hms-hidden="1"]{display:none !important;}')
 
@@ -394,9 +459,276 @@ function removeStyle() {
 }
 
 /* ---------------------------------------------------------------------------
+ * Per-conversation identity + inheritance
+ * ------------------------------------------------------------------------ */
+
+/** Override key. The row DOM exposes no session id — only its title, its
+ *  profile chip and its state — so a conversation is addressed by profile +
+ *  title. Renaming a session therefore drops its override (and the pane says
+ *  so); everything else about the override is durable. */
+function sessionKey(profile, title) {
+  return `${profile || ''}::${(title || '').trim()}`
+}
+
+function overrideFor(cfg, profile, title) {
+  const map = cfg.sessionOverrides || {}
+  return map[sessionKey(profile, title)] || null
+}
+
+/** A branch child paints a └─/├─ stem inside its status dot (session-row.tsx
+ *  passes a depth-first list, so a child is the row right after its parent). */
+function readStem(row, hook) {
+  for (const sel of hook) {
+    let nodes = []
+    try {
+      nodes = row.querySelectorAll(sel)
+    } catch {
+      nodes = []
+    }
+    for (const node of nodes) {
+      if (/[└├]/.test((node.textContent || '').trim())) return (node.textContent || '').trim()
+    }
+  }
+  return ''
+}
+
+/** Core paints the row you are in with `bg-(--ui-row-active-background)`. */
+function isSelectedRow(shell) {
+  try {
+    return String(shell.className).includes('row-active-background')
+  } catch {
+    return false
+  }
+}
+
+function describeRow(row, hooks) {
+  const shell = row.parentElement instanceof Element ? row.parentElement : row
+  const title = readTitle(row, hooks.label)
+  const profile = detectProfile(shell, hooks.profileGlyph)
+  return {
+    profile,
+    row,
+    shell,
+    stem: readStem(row, hooks.stem),
+    title
+  }
+}
+
+function setSessionOverride(info, patch) {
+  const key = sessionKey(info.profile, info.title)
+  const current = ($config.get().sessionOverrides || {})[key] || {}
+  const next = { ...current, ...patch }
+  /* Every field is "meaningful when truthy": an empty icon/color and an
+   * explicit false (`hide`) all mean "no override here", so they are dropped
+   * rather than stored — otherwise the entry survives as dead weight. */
+  for (const field of Object.keys(next)) {
+    if (next[field] === '' || next[field] === null || next[field] === undefined || next[field] === false) delete next[field]
+  }
+  const map = { ...($config.get().sessionOverrides || {}) }
+  if (Object.keys(next).length === 0) delete map[key]
+  else map[key] = next
+  setConfig({ sessionOverrides: map }, { silent: true, replace: ['sessionOverrides'] })
+}
+
+/* ---------------------------------------------------------------------------
+ * The row's own ✦ menu (plain DOM — plugins cannot mount React outside a
+ * contribution, and no react-dom is importable)
+ * ------------------------------------------------------------------------ */
+let menuEl = null
+let menuDisposers = []
+
+function el(tag, className, text) {
+  const node = document.createElement(tag)
+  if (className) node.className = className
+  if (text != null) node.textContent = text
+  node.setAttribute('data-hms-owned', '1')
+  return node
+}
+
+function closeSessionMenu() {
+  for (const dispose of menuDisposers.splice(0)) {
+    try {
+      dispose()
+    } catch {
+      /* ignore */
+    }
+  }
+  if (menuEl) {
+    menuEl.remove()
+    menuEl = null
+  }
+}
+
+function openSessionMenu(shell, event) {
+  const cfg = $config.get()
+  const hooks = resolveHooks(cfg)
+  const row = shell.querySelector(selList(hooks.row)) || shell.querySelector(HOOKS.row[0])
+  if (!row) return
+  const info = describeRow(row, hooks)
+  const override = overrideFor(cfg, info.profile, info.title) || {}
+
+  closeSessionMenu()
+
+  const menu = el('div', 'hms-menu')
+  menu.setAttribute('role', 'dialog')
+  menu.setAttribute('data-hms-menu', info.title)
+
+  /* header */
+  const head = el('div', 'hms-menu-head')
+  head.appendChild(el('div', 'hms-menu-title', info.title || '(بدون عنوان)'))
+  head.appendChild(
+    el(
+      'div',
+      'hms-menu-sub',
+      `${info.profile ? `${info.profile} · ` : ''}${info.stem ? 'فرعية / branch ' : ''}${override.icon ? 'أيقونة مخصّصة / custom' : 'تلقائي / auto'}`
+    )
+  )
+  menu.appendChild(head)
+
+  /* icon grid */
+  menu.appendChild(el('div', 'hms-menu-label', 'أيقونة هذه المحادثة / icon'))
+  const grid = el('div', 'hms-menu-grid')
+  for (const icon of ICON_PALETTE) {
+    const button = el('button', cn('hms-menu-emoji', override.icon === icon && 'is-active'), icon)
+    button.type = 'button'
+    button.addEventListener('click', () => {
+      setSessionOverride(info, { icon })
+      openSessionMenu(shell)
+    })
+    grid.appendChild(button)
+  }
+  menu.appendChild(grid)
+
+  /* custom glyph */
+  const customRow = el('div', 'hms-menu-row')
+  const input = document.createElement('input')
+  input.className = 'hms-menu-input'
+  input.setAttribute('data-hms-owned', '1')
+  input.placeholder = cfg.icons.mode === 'codicon' ? 'codicon name' : 'أي رمز / أي إيموجي'
+  input.value = override.icon || ''
+  customRow.appendChild(input)
+  const apply = el('button', 'hms-menu-act', 'تطبيق')
+  apply.type = 'button'
+  apply.addEventListener('click', () => {
+    setSessionOverride(info, { icon: input.value.trim() })
+    openSessionMenu(shell)
+  })
+  customRow.appendChild(apply)
+  menu.appendChild(customRow)
+
+  /* color */
+  menu.appendChild(el('div', 'hms-menu-label', 'لون الأيقونة / color'))
+  const colors = el('div', 'hms-menu-row')
+  for (const color of COLOR_SWATCHES.slice(0, 8)) {
+    const swatch = el('button', cn('hms-menu-swatch', override.color === color && 'is-active'))
+    swatch.type = 'button'
+    swatch.style.backgroundColor = color
+    swatch.title = color
+    swatch.addEventListener('click', () => {
+      setSessionOverride(info, { color })
+      openSessionMenu(shell)
+    })
+    colors.appendChild(swatch)
+  }
+  menu.appendChild(colors)
+
+  /* actions */
+  const actions = el('div', 'hms-menu-actions')
+  const inherits = el(
+    'button',
+    'hms-menu-act',
+    info.stem ? 'وراثة من المحادثة الأم / inherit from parent' : 'متابعة الحالة / back to state icon'
+  )
+  inherits.type = 'button'
+  inherits.addEventListener('click', () => {
+    setSessionOverride(info, { icon: '', color: '', hide: false })
+    openSessionMenu(shell)
+  })
+  actions.appendChild(inherits)
+  const hideBtn = el('button', 'hms-menu-act', override.hide ? '☑ إخفاء الجلسة' : '☐ إخفاء الجلسة')
+  hideBtn.type = 'button'
+  hideBtn.addEventListener('click', () => {
+    setSessionOverride(info, { hide: override.hide ? false : true })
+    openSessionMenu(shell)
+  })
+  actions.appendChild(hideBtn)
+  menu.appendChild(actions)
+
+  menu.appendChild(el('div', 'hms-menu-foot', 'النقطة الأصلية تعود بخيار «متابعة الحالة». التسمية تُحدَّد بالعنوان.'))
+
+  document.body.appendChild(menu)
+  menuEl = menu
+
+  const rect = shell.getBoundingClientRect()
+  const anchorX = Number.isFinite(event?.clientX) ? event.clientX : rect.right
+  const anchorY = Number.isFinite(event?.clientY) ? event.clientY : rect.top
+  const width = menu.offsetWidth || 208
+  const height = menu.offsetHeight || 260
+  const left = Math.max(8, Math.min(anchorX, window.innerWidth - width - 8))
+  const top = Math.max(8, Math.min(anchorY + 6, window.innerHeight - height - 8))
+  menu.style.left = `${left}px`
+  menu.style.top = `${top}px`
+
+  const onPointerDown = downEvent => {
+    if (menuEl && !menuEl.contains(downEvent.target)) closeSessionMenu()
+  }
+  const onKeyDown = keyEvent => {
+    if (keyEvent.key === 'Escape') closeSessionMenu()
+  }
+  const onScroll = () => closeSessionMenu()
+  document.addEventListener('pointerdown', onPointerDown, true)
+  document.addEventListener('keydown', onKeyDown, true)
+  window.addEventListener('scroll', onScroll, true)
+  menuDisposers.push(
+    () => document.removeEventListener('pointerdown', onPointerDown, true),
+    () => document.removeEventListener('keydown', onKeyDown, true),
+    () => window.removeEventListener('scroll', onScroll, true)
+  )
+}
+
+/** The hover ✦ affordance: a real button in the row's trailing actions slot,
+ *  so a conversation can be styled the way core styles it — from the row. */
+function ensureRowButton(info, hooks, show) {
+  const existing = info.shell.querySelector('.hms-rowbtn')
+  if (!show) {
+    if (existing) existing.remove()
+    return
+  }
+  let button = existing
+  if (!button) {
+    let host = null
+    for (const sel of hooks.actions) {
+      try {
+        host = info.shell.querySelector(sel)
+      } catch {
+        host = null
+      }
+      if (host) break
+    }
+    if (!host) return
+    button = el('button', 'hms-rowbtn', '✦')
+    button.type = 'button'
+    button.title = 'أيقونة هذه المحادثة / this conversation’s icon'
+    button.addEventListener('pointerdown', downEvent => {
+      downEvent.preventDefault()
+      downEvent.stopPropagation()
+      haptic('tap')
+      if (menuEl && menuEl.getAttribute('data-hms-menu') === info.title) closeSessionMenu()
+      else openSessionMenu(info.shell, downEvent)
+    })
+    host.insertBefore(button, host.firstChild)
+  }
+  if (button.getAttribute('data-hms-row-icon') !== info.icon) {
+    button.setAttribute('data-hms-row-icon', info.icon || '')
+    button.setAttribute('data-hms-custom', overrideFor($config.get(), info.profile, info.title) ? '1' : '0')
+  }
+}
+
+/* ---------------------------------------------------------------------------
  * Annotation pass
  * ------------------------------------------------------------------------ */
 function annotate() {
+  if (runtime.dead) return
   if (!document || !document.body) return
   const cfg = $config.get()
   const hooks = resolveHooks(cfg)
@@ -404,6 +736,7 @@ function annotate() {
   const states = {}
   const profiles = new Set()
   const warnings = []
+  const snapshot = []
   let rows = 0
   let styled = 0
   let hook = '—'
@@ -422,14 +755,16 @@ function annotate() {
       }
     }
     if (!rowSel) {
+      closeSessionMenu()
       $stats.set({ on: cfg.on, rows: 0, styled: 0, hook: 'no match', states: {}, profiles: [], warnings: ['لم يُعثر على أي صف جلسة / no session row matched'], lastRun: Date.now(), error: '' })
       runtime.busy = false
       return
     }
     hook = rowSel
 
-    const matched = document.querySelectorAll(rowSel)
-    for (const row of matched) {
+    /* pass 1 — describe every row */
+    const list = []
+    for (const row of document.querySelectorAll(rowSel)) {
       if (!(row instanceof Element)) continue
       if (row.hasAttribute('data-hms-preview')) continue
       rows += 1
@@ -438,7 +773,80 @@ function annotate() {
       const state = detectState(row, shell, dot) || 'idle'
       const profile = detectProfile(shell, hooks.profileGlyph)
       const title = readTitle(row, hooks.label)
-      const info = { row, shell, dot, state, profile, title }
+      const stem = readStem(row, hooks.stem)
+      const override = overrideFor(cfg, profile, title)
+      const mode = cfg.icons.mode
+      const info = {
+        dot,
+        hidden: false,
+        icon: '',
+        iconSource: '',
+        color: '',
+        own: 'state',
+        override,
+        profile,
+        row,
+        selected: isSelectedRow(shell),
+        shell,
+        state,
+        stem,
+        title
+      }
+      /* baseline: the state icon */
+      if (mode !== 'dot') info.icon = cfg.icons.byState?.[state] || ''
+      /* rules */
+      for (const rule of cfg.rules || []) {
+        if (!ruleMatches(rule, info)) continue
+        if (rule.icon) {
+          info.icon = rule.icon
+          info.own = 'rule'
+        }
+        if (rule.color) info.color = rule.color
+        if (rule.hide) info.hidden = true
+      }
+      /* per-conversation override wins over every rule */
+      if (override) {
+        if (override.icon) {
+          info.icon = override.icon
+          info.own = 'session'
+        }
+        if (override.color) info.color = override.color
+        if (override.hide) info.hidden = true
+      }
+      list.push(info)
+    }
+
+    /* pass 2 — branch inheritance: a child takes its parent's icon. The list is
+     * depth-first, so the row right before a child IS its parent (and a branch
+     * of a branch inherits through the chain). */
+    if (cfg.inheritBranch) {
+      let parent = null
+      for (const info of list) {
+        if (info.stem && parent && info.own !== 'session' && info.own !== 'rule') {
+          if (parent.icon) {
+            info.icon = parent.icon
+            info.iconSource = 'parent'
+            info.own = 'parent'
+          }
+          if (!info.color && parent.color) info.color = parent.color
+        }
+        parent = info
+      }
+    }
+
+    /* pass 3 — apply to the DOM */
+    for (const info of list) {
+      const { shell, dot, state, profile, title } = info
+      if (!info.iconSource) info.iconSource = info.own
+
+      /* the conversation you are in can look different */
+      if (info.selected) {
+        if (cfg.selected?.icon) {
+          info.icon = cfg.selected.icon
+          info.iconSource = 'selected'
+        }
+        if (cfg.selected?.color) info.color = cfg.selected.color
+      }
 
       if (shell.getAttribute('data-hms-state') !== state) shell.setAttribute('data-hms-state', state)
       if (profile) {
@@ -449,38 +857,44 @@ function annotate() {
       }
       shell.setAttribute('data-hms-row', '1')
       shell.setAttribute('data-hms-owned', '1')
+      if (info.selected) shell.setAttribute('data-hms-selected', '1')
+      else shell.removeAttribute('data-hms-selected')
+      if (info.stem) shell.setAttribute('data-hms-branch', '1')
+      else shell.removeAttribute('data-hms-branch')
       if (dot) {
         dot.setAttribute('data-hms-dot', '1')
         dot.setAttribute('data-hms-owned', '1')
       }
-      states[state] = (states[state] || 0) + 1
-
-      /* rules → per-row variables */
-      let ruleIcon = ''
-      let ruleColor = ''
-      let hidden = false
-      for (const rule of cfg.rules || []) {
-        if (!ruleMatches(rule, info)) continue
-        if (rule.icon) ruleIcon = rule.icon
-        if (rule.color) ruleColor = rule.color
-        if (rule.hide) hidden = true
-      }
-      if (hidden) shell.setAttribute('data-hms-hidden', '1')
+      if (info.hidden) shell.setAttribute('data-hms-hidden', '1')
       else shell.removeAttribute('data-hms-hidden')
-      if (ruleColor) shell.style.setProperty('--hms-icon-rule', ruleColor)
-      else shell.style.removeProperty('--hms-icon-rule')
-      if (ruleColor) shell.setAttribute('data-hms-rule-color', '1')
-      else shell.removeAttribute('data-hms-rule-color')
 
-      /* icon node */
+      if (info.color) shell.style.setProperty('--hms-icon-rule', info.color)
+      else shell.style.removeProperty('--hms-icon-rule')
+
       const mode = cfg.icons.mode
-      const glyph = ruleIcon || (mode === 'dot' ? '' : cfg.icons.byState?.[state] || '')
-      const lead = row.querySelector(selList(hooks.lead))
+      const lead = info.row.querySelector(selList(hooks.lead))
       if (lead) {
         lead.setAttribute('data-hms-owned', '1')
-        ensureIcon(lead, glyph, mode === 'codicon' ? 'codicon' : 'emoji')
+        ensureIcon(lead, info.icon, mode === 'codicon' ? 'codicon' : 'emoji')
       }
-      if (glyph) styled += 1
+      if (cfg.selected?.size && info.selected) shell.style.setProperty('--hms-icon-size', `${cfg.selected.size}px`)
+      else shell.style.removeProperty('--hms-icon-size')
+
+      ensureRowButton(info, hooks, cfg.rowMenu)
+      if (info.icon) styled += 1
+      states[state] = (states[state] || 0) + 1
+
+      snapshot.push({
+        branch: Boolean(info.stem),
+        custom: Boolean(info.override),
+        icon: info.icon,
+        key: sessionKey(profile, title),
+        profile: profile || '',
+        selected: info.selected,
+        source: info.iconSource,
+        state,
+        title
+      })
     }
   } catch (err) {
     warnings.push(String((err && err.message) || err))
@@ -497,6 +911,7 @@ function annotate() {
       lastRun: Date.now(),
       error: ''
     })
+    $rows.set(snapshot)
     runtime.quietUntil = Date.now() + 120
   }
 }
@@ -513,6 +928,7 @@ function isOurs(node) {
 }
 
 function schedule() {
+  if (runtime.dead) return
   if (runtime.debounce) clearTimeout(runtime.debounce)
   runtime.debounce = setTimeout(() => {
     runtime.debounce = null
@@ -521,7 +937,7 @@ function schedule() {
 }
 
 function onMutations(records) {
-  if (runtime.busy) return
+  if (runtime.dead || runtime.busy) return
   if (Date.now() < (runtime.quietUntil || 0)) return
   for (const record of records) {
     if (!isRelevant(record)) continue
@@ -551,6 +967,7 @@ function isRelevant(record) {
 }
 
 function applyAll() {
+  if (runtime.dead) return
   const cfg = $config.get()
   if (!cfg.on) {
     detach()
@@ -565,7 +982,7 @@ function applyAll() {
 }
 
 function attach() {
-  if (runtime.observer || !document?.documentElement) return
+  if (runtime.dead || runtime.observer || !document?.documentElement) return
   runtime.observer = new MutationObserver(onMutations)
   runtime.observer.observe(document.documentElement, {
     attributeFilter: ['class', 'data-working', 'aria-label', 'style', 'data-state'],
@@ -574,6 +991,7 @@ function attach() {
     subtree: true
   })
   runtime.timer = setInterval(() => {
+    if (runtime.dead) return
     if (!document.getElementById(STYLE_ID)) applyAll()
     else if (!runtime.busy) annotate()
   }, 4000)
@@ -598,10 +1016,11 @@ function detach() {
     runtime.debounce = null
   }
   /* strip every annotation we may have left behind */
-  for (const attr of ['data-hms-row', 'data-hms-state', 'data-hms-profile', 'data-hms-dot', 'data-hms-owned', 'data-hms-hidden', 'data-hms-rule-color', 'data-hms-hide-dot']) {
+  for (const attr of ['data-hms-row', 'data-hms-state', 'data-hms-profile', 'data-hms-dot', 'data-hms-owned', 'data-hms-hidden', 'data-hms-rule-color', 'data-hms-hide-dot', 'data-hms-selected', 'data-hms-branch']) {
     document.querySelectorAll(`[${attr}]`).forEach(node => node.removeAttribute(attr))
   }
-  document.querySelectorAll('.hms-icon').forEach(node => node.remove())
+  document.querySelectorAll('.hms-icon, .hms-rowbtn').forEach(node => node.remove())
+  closeSessionMenu()
 }
 
 /* ---------------------------------------------------------------------------
@@ -774,7 +1193,8 @@ function PreviewRow({ state, title }) {
 function StylerPane() {
   const cfg = useValue($config)
   const stats = useValue($stats)
-  const [tab, setTab] = useState('icons')
+  const rows = useValue($rows)
+  const [tab, setTab] = useState('sessions')
   const [hookDraft, setHookDraft] = useState(null)
   const [ruleDraft, setRuleDraft] = useState({ type: 'title', value: '', icon: '', color: '', hide: false })
 
@@ -853,6 +1273,7 @@ function StylerPane() {
       jsx(SegmentedControl, {
         onChange: setTab,
         options: [
+          { id: 'sessions', label: 'جلسات' },
           { id: 'icons', label: 'أيقونات' },
           { id: 'colors', label: 'ألوان' },
           { id: 'size', label: 'أحجام' },
@@ -861,6 +1282,93 @@ function StylerPane() {
         ],
         value: tab
       }),
+
+      tab === 'sessions'
+        ? jsxs('div', {
+            className: 'flex flex-col gap-2',
+            children: [
+              jsx(Row, {
+                children: [
+                  jsx('span', { children: 'وراثة أيقونة المحادثة الأم / branch inheritance' }),
+                  jsx(Switch, { checked: cfg.inheritBranch, onCheckedChange: value => setConfig({ inheritBranch: value }), size: 'xs' })
+                ]
+              }),
+              jsx(Row, {
+                children: [
+                  jsx('span', { children: 'زر ✦ في الصف / hover ✦ button' }),
+                  jsx(Switch, { checked: cfg.rowMenu, onCheckedChange: value => setConfig({ rowMenu: value }), size: 'xs' })
+                ]
+              }),
+              jsx('div', {
+                className: 'rounded-[3px] bg-(--ui-bg-tertiary) px-2 py-1 text-[0.625rem] leading-4 text-(--ui-text-tertiary)',
+                children: jsx('span', {
+                  children: 'لتغيير أيقونة محادثة: اضغط ✦ عند المرور عليها (أو الأمر «أيقونة المحادثة المفتوحة» في ⌘K) واختر من القائمة. المحادثة الفرعية ترث أيقونة الأم تلقائيًا.'
+                })
+              }),
+              jsx(Field, {
+                label: 'أيقونة المحادثة المفتوحة / selected icon',
+                children: jsx(IconField, {
+                  mode: cfg.icons.mode,
+                  onChange: value => setConfig({ selected: { icon: value } }),
+                  value: cfg.selected?.icon || ''
+                })
+              }),
+              jsx(Field, {
+                label: 'لون أيقونة المحادثة المفتوحة / selected color',
+                children: jsx(ColorField, { onChange: value => setConfig({ selected: { color: value } }), value: cfg.selected?.color || '' })
+              }),
+              jsx(Field, {
+                hint: cfg.selected?.size ? `${cfg.selected.size}px` : 'تلقائي / auto',
+                label: 'حجم أيقونة المحادثة المفتوحة / selected size',
+                children: jsx(Slider, {
+                  max: 26,
+                  min: 0,
+                  onChange: value => setConfig({ selected: { size: value } }),
+                  step: 1,
+                  value: cfg.selected?.size || 0
+                })
+              }),
+              jsx(Separator, {}),
+              jsxs('div', {
+                className: 'flex items-center justify-between',
+                children: [
+                  jsx('span', { className: 'text-[0.625rem] uppercase text-(--ui-text-quaternary)', children: 'الجلسات الظاهرة / visible sessions' }),
+                  jsx(Badge, { size: 'xs', variant: 'outline', children: String(rows.length) })
+                ]
+              }),
+              rows.length
+                ? rows.map(entry =>
+                    jsxs('div', {
+                      className: 'flex items-center gap-1.5 rounded-[3px] bg-(--ui-bg-tertiary) px-1.5 py-1',
+                      children: [
+                        jsx('span', { className: 'w-4 shrink-0 text-center text-[0.8125rem]', children: entry.icon || '·' }),
+                        jsxs('span', {
+                          className: 'flex min-w-0 flex-1 flex-col',
+                          children: [
+                            jsx('span', { className: 'truncate text-[0.6875rem]', children: entry.title || '(بدون عنوان)' }),
+                            jsx('span', {
+                              className: 'truncate text-[0.5625rem] text-(--ui-text-quaternary)',
+                              children: `${entry.state} · ${entry.profile || '—'}${entry.branch ? ' · فرعية' : ''}${entry.selected ? ' · مفتوحة' : ''} · ${entry.source || '—'}`
+                            })
+                          ]
+                        }),
+                        jsx('button', {
+                          className: 'shrink-0 rounded-[3px] px-1 py-px text-[0.5625rem] text-(--ui-text-tertiary) hover:bg-(--ui-control-active-background) hover:text-foreground',
+                          onClick: () => {
+                            const shell = findShellByTitle(entry.title)
+                            if (shell) openSessionMenu(shell)
+                            else host.notify({ kind: 'warn', message: 'الصف غير ظاهر الآن / row not visible' })
+                          },
+                          type: 'button',
+                          children: entry.custom ? 'تعديل' : 'تخصيص'
+                        })
+                      ]
+                    }, entry.key)
+                  )
+                : jsx('div', { className: 'text-[0.625rem] text-(--ui-text-quaternary)', children: 'لا صفوف ظاهرة / no rows' })
+            ]
+          })
+        : null,
 
       tab === 'icons'
         ? jsxs('div', {
@@ -1329,6 +1837,42 @@ export default {
       /* persistence is best-effort */
     }
 
+    /* Hot reload / re-activate runs register() again in a NEW module instance
+     * while the previous one's MutationObserver and safety-net timer are still
+     * alive — the app disposes what went through `ctx`, not module scope. Hand
+     * the old incarnation's teardown over before painting, or two instances
+     * annotate the same DOM with different configs and the icons flicker back.
+     * (`ctx.onDispose` is used when the shell provides it; the window marker is
+     * the belt for shells that don't.) */
+    if (typeof window !== 'undefined' && typeof window.__hermesSessionStylerCleanup === 'function') {
+      try {
+        window.__hermesSessionStylerCleanup()
+      } catch {
+        /* the previous incarnation is already gone */
+      }
+    }
+    const cleanup = () => {
+      /* DEAD, not just detached: a MutationObserver callback or a timer already
+       * scheduled would otherwise re-arm this incarnation on the next tick and
+       * two instances would fight over the same rows. */
+      runtime.dead = true
+      if (runtime.debounce) {
+        clearTimeout(runtime.debounce)
+        runtime.debounce = null
+      }
+      detach()
+      removeStyle()
+      closeSessionMenu()
+    }
+    if (typeof window !== 'undefined') window.__hermesSessionStylerCleanup = cleanup
+    if (typeof ctx.onDispose === 'function') {
+      try {
+        ctx.onDispose(cleanup)
+      } catch {
+        /* older shells */
+      }
+    }
+
     /* First paint: the app may still be mounting, so kick once now and once
      * after the shell settles — then SAY SO, once. A plugin that loads but
      * changes nothing on screen is indistinguishable from one that never
@@ -1385,6 +1929,23 @@ export default {
         id: 'emojis',
         area: PALETTE_AREA,
         data: { id: `${ID}.emoji`, label: 'Session Styler: أيقونات إيموجي للحالات', keywords: ['emoji', 'icons'], run: () => setConfig({ icons: { mode: 'emoji' } }) }
+      },
+      {
+        id: 'current',
+        area: PALETTE_AREA,
+        data: {
+          id: `${ID}.current`,
+          label: 'Session Styler: أيقونة المحادثة المفتوحة',
+          keywords: ['icon', 'session', 'conversation', 'أيقونة', 'محادثة'],
+          run: () => {
+            const shell = document.querySelector('[data-hms-selected]')
+            if (!shell) {
+              host.notify({ kind: 'warn', message: 'لم أجد المحادثة المفتوحة / no active conversation row' })
+              return
+            }
+            openSessionMenu(shell)
+          }
+        }
       },
       {
         id: 'reset',

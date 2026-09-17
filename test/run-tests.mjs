@@ -8,7 +8,7 @@ import { JSDOM } from 'jsdom'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { copyFileSync, readFileSync } from 'node:fs'
 
-import { DEFAULT_ROWS, ROW_HTML } from './fixture.mjs'
+import { BRANCH_ROWS, DEFAULT_ROWS, ROW_HTML } from './fixture.mjs'
 
 const PLUGIN_PATH = process.argv[2] || '/opt/data/profiles/system-update/desktop-plugins/session-styler/plugin.js'
 const SDK = await import('@hermes/plugin-sdk')
@@ -43,6 +43,7 @@ globalThis.document = window.document
 const LOCAL_PLUGIN = new URL('./plugin.under-test.mjs', import.meta.url)
 copyFileSync(PLUGIN_PATH, LOCAL_PLUGIN)
 const source = readFileSync(PLUGIN_PATH, 'utf8')
+const VERSION_IN_SOURCE = (source.match(/const VERSION = '([^']+)'/) || [])[1]
 const plugin = (await import(`${LOCAL_PLUGIN.href}?t=${Date.now()}`)).default
 
 /* ------------------------------------------------------------ fake plugin ctx */
@@ -74,6 +75,42 @@ const ctx = {
   }
 }
 
+/* Boot a fresh plugin instance the way the app does a reload: unload the
+ *  previous one first, so two instances never annotate the same DOM with
+ *  different configs. */
+const instances = []
+async function boot(config, { rows = null } = {}) {
+  /* Unload the previous incarnation through the SAME handle a reload uses
+   * (ctx.onDispose → window.__hermesSessionStylerCleanup), so one process can
+   * host many boots without them annotating the same DOM. */
+  if (typeof window.__hermesSessionStylerCleanup === 'function') window.__hermesSessionStylerCleanup()
+  await new Promise(resolve => setTimeout(resolve, 60))
+  if (rows) document.body.innerHTML = ROW_HTML(rows)
+  saved.push({ key: 'config', value: config })
+  const regs = []
+  const localCtx = {
+    ...ctx,
+    register: contribution => {
+      regs.push(contribution)
+      return () => undefined
+    },
+    registerMany: list => {
+      for (const contribution of list) regs.push(contribution)
+      return () => undefined
+    }
+  }
+  const mod = (await import(`${LOCAL_PLUGIN.href}?boot=${Date.now()}-${Math.round(Math.random() * 1e6)}`)).default
+  mod.register(localCtx)
+  await new Promise(resolve => setTimeout(resolve, 180))
+  const instance = {
+    mod,
+    palette: id => regs.find(entry => entry.area === SDK.PALETTE_AREA && entry.data?.id === `session-styler.${id}`),
+    regs
+  }
+  instances.push(instance)
+  return instance
+}
+
 /* --------------------------------------------------------------------- boot */
 check('plugin id', plugin.id === 'session-styler', plugin.id)
 check('plugin has register()', typeof plugin.register === 'function')
@@ -86,6 +123,7 @@ const shells = () => doc.querySelectorAll('[data-hms-row]')
 const styleNode = () => doc.getElementById('hermes-session-styler-style')
 
 const palette = id => registrations.find(entry => entry.area === SDK.PALETTE_AREA && entry.data?.id === `session-styler.${id}`)
+instances.push({ mod: plugin, palette, regs: registrations })
 
 /* ---------------------------------------------------------- 1. contributions */
 check('pane registered in PANES_AREA', registrations.some(entry => entry.area === SDK.PANES_AREA && entry.data?.placement === 'right'))
@@ -198,27 +236,18 @@ check('toggling back on re-annotates', doc.querySelectorAll('[data-hms-row]').le
 SDK.notifications.length = 0
 const $configAtom = null
 /* rules are exercised through the pane's persisted config: write then re-register */
-saved.push({ key: 'config', value: { on: true, rules: [{ id: 'r1', type: 'title', value: 'odoo|فواتير', icon: '🧾', color: '#f97316' }, { id: 'r2', type: 'profile', value: 'work-emails', hide: true }] } })
-const plugin2 = (await import(`${LOCAL_PLUGIN.href}?rules=${Date.now()}`)).default
-plugin2.register(ctx)
-await new Promise(resolve => setTimeout(resolve, 100))
+await boot({ on: true, rules: [{ id: 'r1', type: 'title', value: 'odoo|فواتير', icon: '🧾', color: '#f97316' }, { id: 'r2', type: 'profile', value: 'work-emails', hide: true }] })
 check('title rule matched (regex, arabic)', Boolean(byTitle('نموذج جديد للفواتير')?.innerHTML.includes('🧾')))
 check('title rule applied per-row color var', byTitle('نموذج جديد للفواتير')?.getAttribute('style')?.includes('--hms-icon-rule: #f97316'))
 check('profile rule hid the row', byTitle('تحتاج موافقتك')?.getAttribute('data-hms-hidden') === '1')
 
 /* ------------------------------------------------- 10. colors + codicon mode */
-saved.push({
-  key: 'config',
-  value: {
+await boot({
     on: true,
     icons: { mode: 'codicon', size: 15, byState: { working: 'rocket' } },
     colors: { on: true, states: { unread: '#22c55e', needsInput: '#f97316' }, tint: true, tintColor: '#3b82f6', tintStrength: 18, title: 'var(--ui-text-primary)', meta: '#94a3b8' },
     size: { on: true, rowHeight: 30, label: 14, meta: 11, lead: 16, gap: 8, radius: 8 }
-  }
-})
-const plugin3 = (await import(`${LOCAL_PLUGIN.href}?colors=${Date.now()}`)).default
-plugin3.register(ctx)
-await new Promise(resolve => setTimeout(resolve, 150))
+  })
 const css3 = styleNode()?.textContent || ''
 check('color: unread dot override emitted for the unread state only', css3.includes('[data-hms-row][data-hms-state="unread"] [data-hms-dot]') && css3.includes('--hms-dot-unread: #22c55e'))
 check('color: needsInput dot override emitted', css3.includes('--hms-dot-needsInput: #f97316'))
@@ -229,15 +258,114 @@ check('codicon mode injects an <i class="codicon codicon-…">', Boolean(byTitle
 check('codicon icon size uses the configured px', css3.includes('--hms-icon-size: 15px'))
 check('no hardcoded colors leak into the plugin file', !/#[0-9a-f]{6}/i.test(source.replace(/COLOR_SWATCHES[\s\S]*?\]/, '').replace(/ICON_PALETTE[\s\S]*?\]/, '')), 'swatch/palette literals are the only hex values')
 
-check('load beacon written to plugin storage', saved.some(entry => entry.key === 'loadedAt' && typeof entry.value === 'string') && saved.some(entry => entry.key === 'loadedVersion' && entry.value === '1.0.1'))
+check('load beacon written to plugin storage', saved.some(entry => entry.key === 'loadedAt' && typeof entry.value === 'string') && saved.some(entry => entry.key === 'loadedVersion' && entry.value === VERSION_IN_SOURCE))
 
 /* ------------------------------------------- 11. no-op safety on a drifted DOM */
-const plugin4 = (await import(`${LOCAL_PLUGIN.href}?drift=${Date.now()}`)).default
-document.body.innerHTML = '<div id="empty-shell"></div>'
-plugin4.register(ctx)
-await new Promise(resolve => setTimeout(resolve, 150))
+await boot({ on: true }, { rows: [] })
 check('drifted/empty DOM does not throw', true)
 check('drifted DOM still injects the stylesheet', Boolean(styleNode()))
+
+/* ------------------------------- 12. per-conversation overrides + ✦ menu */
+await boot(
+  { on: true, icons: { mode: 'emoji' }, sessionOverrides: { 'odoo::نموذج جديد للفواتير': { icon: '🧾' } } },
+  { rows: DEFAULT_ROWS }
+)
+check('session override applies to that conversation only', Boolean(byTitle('نموذج جديد للفواتير')?.innerHTML.includes('🧾')))
+check('other rows keep their state icon', Boolean(byTitle('Deploy Hermes update')?.innerHTML.includes('⚡')))
+
+/* the ✦ button is injected into every row's actions column */
+const firstShell = byTitle('Odoo sync report')
+check('✦ affordance injected into the row actions', Boolean(firstShell?.querySelector('[data-row-actions] .hms-rowbtn')))
+check('✦ affordance injected once per row', doc.querySelectorAll('.hms-rowbtn').length === DEFAULT_ROWS.length, String(doc.querySelectorAll('.hms-rowbtn').length))
+
+/* clicking it opens the per-conversation menu */
+const btn = firstShell.querySelector('.hms-rowbtn')
+btn.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true, cancelable: true, clientX: 40, clientY: 200 }))
+const menu = doc.querySelector('.hms-menu')
+check('✦ opens the row menu', Boolean(menu))
+check('menu is titled with the conversation', menu?.getAttribute('data-hms-menu') === 'Odoo sync report', String(menu?.getAttribute('data-hms-menu')))
+const emojis = menu ? Array.from(menu.querySelectorAll('.hms-menu-emoji')) : []
+check('menu offers the icon palette', emojis.length === 30, String(emojis.length))
+/* pick an icon from the menu */
+const pick = emojis.find(node => node.textContent === '📦')
+pick.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
+await new Promise(resolve => setTimeout(resolve, 200))
+await new Promise(resolve => setTimeout(resolve, 150))
+check('picking an icon writes a per-conversation override', byTitle('Odoo sync report')?.querySelector('.hms-icon')?.textContent === '📦', `icon=${byTitle('Odoo sync report')?.querySelector('.hms-icon')?.textContent}`)
+check('override persisted under sessionOverrides', saved.some(e => e.key === 'config' && e.value?.sessionOverrides?.['odoo::Odoo sync report']?.icon === '📦'))
+/* "back to state" clears it — reopen the menu from the row's ✦ first, so the
+ * test never depends on the menu that the pick itself re-rendered */
+const star2 = byTitle('Odoo sync report')?.querySelector('.hms-rowbtn')
+star2?.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true, cancelable: true, clientX: 40, clientY: 200 }))
+const fresh = doc.querySelector('.hms-menu')
+const backBtn = fresh ? Array.from(fresh.querySelectorAll('.hms-menu-act')).find(node => node.textContent.includes('متابعة الحالة')) : null
+backBtn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
+await new Promise(resolve => setTimeout(resolve, 200))
+check('«متابعة الحالة» clears the override', !(saved.filter(e => e.key === 'config').at(-1)?.value?.sessionOverrides?.['odoo::Odoo sync report']), JSON.stringify(saved.filter(e => e.key === 'config').at(-1)?.value?.sessionOverrides))
+check('clearing one override keeps the others', saved.filter(e => e.key === 'config').at(-1)?.value?.sessionOverrides?.['odoo::نموذج جديد للفواتير']?.icon === '🧾')
+check('the row falls back to its state icon', !byTitle('Odoo sync report')?.querySelector('.hms-icon'))
+check('menu closes on outside pointerdown', (() => {
+  doc.body.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true }))
+  return !doc.querySelector('.hms-menu')
+})())
+
+/* --------------------------------------- 13. branch inheritance (└─ child) */
+await boot(
+  { on: true, icons: { mode: 'emoji', byState: { idle: '', working: '⚡', unread: '🟢' } }, inheritBranch: true, rowMenu: false, sessionOverrides: { 'odoo::Parent project': { icon: '📦' } } },
+  { rows: BRANCH_ROWS }
+)
+const branchDebug = `rows=${doc.querySelectorAll('[data-hms-row]').length} titles=${Array.from(doc.querySelectorAll('span[class*="text-[0.8125rem]"]')).map(n => n.textContent.trim()).join('|')}`
+const parentShell = byTitle('Parent project')
+const childShell = byTitle('Branch child')
+const deepShell = byTitle('Deep branch child')
+check('parent keeps its own icon', Boolean(parentShell?.querySelector('.hms-icon')?.textContent === '📦'), branchDebug)
+check('branch child inherits the parent icon', childShell?.querySelector('.hms-icon')?.textContent === '📦', `child=${childShell?.querySelector('.hms-icon')?.textContent} ${branchDebug}`)
+check('branch child marked as such', childShell?.getAttribute('data-hms-branch') === '1')
+check('deep branch child inherits through the chain', deepShell?.querySelector('.hms-icon')?.textContent === '📦', `deep=${deepShell?.querySelector('.hms-icon')?.textContent}`)
+check('rowMenu=false removes the ✦ button', doc.querySelectorAll('.hms-rowbtn').length === 0)
+
+/* a child with its own override wins over inheritance */
+await boot(
+  { on: true, icons: { mode: 'emoji', byState: { idle: '', working: '⚡', unread: '🟢' } }, inheritBranch: true, sessionOverrides: { 'odoo::Parent project': { icon: '📦' }, 'odoo::Branch child': { icon: '🧪' } } },
+  { rows: BRANCH_ROWS }
+)
+check('child override beats inheritance', Boolean(byTitle('Branch child')?.innerHTML.includes('🧪')))
+check('parent unaffected by the child override', Boolean(byTitle('Parent project')?.innerHTML.includes('📦')))
+
+/* inheritance off → children fall back to their state icon */
+await boot(
+  { on: true, icons: { mode: 'emoji', byState: { idle: '', working: '⚡', unread: '🟢' } }, inheritBranch: false, sessionOverrides: { 'odoo::Parent project': { icon: '📦' } } },
+  { rows: BRANCH_ROWS }
+)
+check('inheritance off → child shows its state icon', Boolean(byTitle('Branch child')?.innerHTML.includes('⚡')))
+
+/* ------------------------------------------- 14. selected conversation look */
+await boot(
+  { on: true, icons: { mode: 'emoji', byState: { idle: '', unread: '🟢' } }, selected: { icon: '🎯', color: 'var(--ui-accent)', size: 20 } },
+  { rows: DEFAULT_ROWS }
+)
+const selShell = byTitle('Odoo sync report')
+check('selected row is stamped', selShell?.getAttribute('data-hms-selected') === '1')
+check('selected row paints the configured icon', Boolean(selShell?.innerHTML.includes('🎯')))
+check('selected row paints the configured size', (selShell?.getAttribute('style') || '').includes('--hms-icon-size: 20px'), selShell?.getAttribute('style'))
+check('non-selected rows are untouched by the selected look', !byTitle('Weekly review')?.innerHTML.includes('🎯'))
+
+/* --------------------------------------- 15. hot reload hands over cleanly */
+/* A: plain dots (no icons). B: emoji icons. B is registered while A is still
+ * live — if A's observer/timer survived, it would strip B's icons on any later
+ * mutation (and vice versa). */
+await boot({ on: true, icons: { mode: 'dot' } }, { rows: DEFAULT_ROWS })
+check('no icons while in dot mode', doc.querySelectorAll('.hms-icon').length === 0, String(doc.querySelectorAll('.hms-icon').length))
+await boot({ on: true, icons: { mode: 'emoji' } }, { rows: null })
+check('reload paints with the new config', doc.querySelectorAll('.hms-icon').length >= 3, String(doc.querySelectorAll('.hms-icon').length))
+check('reload leaves a teardown handle on the window', typeof window.__hermesSessionStylerCleanup === 'function')
+/* a fresh row arrives after the reload — the live instance must style it */
+const late = doc.createElement('div')
+late.innerHTML = ROW_HTML([{ title: 'Row after reload', profile: 'odoo', dotAttrs: 'class="size-1.5 rounded-full bg-(--ui-success)"' }])
+doc.body.appendChild(late)
+await new Promise(resolve => setTimeout(resolve, 400))
+check('a row appearing after the reload is styled by the live instance', late.querySelector('.hms-icon')?.textContent === '🟢', `icon=${late.querySelector('.hms-icon')?.textContent}`)
+check('and the main list still has its icons', doc.querySelectorAll('.hms-icon').length >= 4, String(doc.querySelectorAll('.hms-icon').length))
 
 console.log('\nSession Styler — plugin harness\n' + '='.repeat(46))
 for (const result of results) {

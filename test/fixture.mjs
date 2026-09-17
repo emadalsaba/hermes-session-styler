@@ -10,11 +10,12 @@ export const ROW_HTML = rows => `
   ${rows
     .map(
       row => `
-  <div class="min-h-[1.625rem] pr-2 grid grid-cols-[minmax(0,1fr)_auto] items-stretch rounded-md"${row.working ? ' data-working="true"' : ''}>
+  <div class="min-h-[1.625rem] pr-2 grid grid-cols-[minmax(0,1fr)_auto] items-stretch rounded-md${row.selected ? ' bg-(--ui-row-active-background)' : ''}"${row.working ? ' data-working="true"' : ''}>
     ${row.arc ? '<span aria-hidden="true" class="arc-border arc-row"></span>' : ''}
     <button data-slot="row-button" type="button" class="pl-2 pr-2 gap-1.5 flex h-full min-w-0 items-center self-stretch py-0.5 bg-transparent text-left">
       <span class="grid size-3.5 shrink-0 place-items-center overflow-hidden">
         <span class="flex items-center gap-0.5">
+          ${row.stem ? `<span aria-hidden="true" class="shrink-0 font-mono text-[0.625rem] leading-none text-(--ui-text-quaternary)">${row.stem}</span>` : ''}
           <span ${row.dotAttrs || ''}></span>
         </span>
       </span>
@@ -39,10 +40,18 @@ export const ROW_HTML = rows => `
 </nav>`
 
 export const DEFAULT_ROWS = [
-  { title: 'Odoo sync report', profile: 'odoo', dotAttrs: 'aria-hidden="true" class="size-1 rounded-full bg-(--ui-text-quaternary)" style="background-color: hsl(200 68% 58%)"' },
+  { title: 'Odoo sync report', profile: 'odoo', selected: true, dotAttrs: 'aria-hidden="true" class="size-1 rounded-full bg-(--ui-text-quaternary)" style="background-color: hsl(200 68% 58%)"' },
   { title: 'Weekly review', profile: 'personal', dotAttrs: 'class="size-1 rounded-full bg-(--ui-text-quaternary)"' },
   { title: 'Deploy Hermes update', profile: 'system-update', dotAttrs: 'role="status" class="size-1.5 rounded-full bg-(--ui-accent)"', working: true, arc: true },
   { title: 'نموذج جديد للفواتير', profile: 'odoo', dotAttrs: 'aria-label="finished unread" class="size-1.5 rounded-full bg-(--ui-success)"' },
   { title: 'تحتاج موافقتك', profile: 'work-emails', dotAttrs: 'role="status" class="size-1.5 rounded-full bg-amber-500"' },
   { title: 'مسودة فارغة', profile: null, dotAttrs: 'class="size-1.5 rounded-full border border-(--ui-text-quaternary)"' }
+]
+
+/* A parent with a branch child (└─ stem), exactly as the depth-first sidebar
+ * list renders it: the child row follows its parent directly. */
+export const BRANCH_ROWS = [
+  { title: 'Parent project', profile: 'odoo', dotAttrs: 'class="size-1 rounded-full bg-(--ui-text-quaternary)"' },
+  { title: 'Branch child', profile: 'odoo', stem: '└─ ', dotAttrs: 'class="size-1.5 rounded-full bg-(--ui-accent)"', working: true },
+  { title: 'Deep branch child', profile: 'odoo', stem: '└─ ', dotAttrs: 'class="size-1.5 rounded-full bg-(--ui-success)"' }
 ]

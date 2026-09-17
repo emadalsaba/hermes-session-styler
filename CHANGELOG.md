@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.1.0 — 2026-09-17
+
+**Added**
+
+- **Per-conversation icons.** Every row now carries a **✦** button (hover) that opens a menu bound
+  to THAT conversation: an icon grid, a free-text glyph, icon colours, hide-the-row, and
+  «متابعة الحالة / back to state icon» to clear it. Overrides are keyed `<profile>::<title>` and win
+  over rules. The same menu opens from ⌘K → *أيقونة المحادثة المفتوحة*, and the pane's new
+  **جلسات** tab lists the visible conversations with a per-row customize button.
+- **Branch inheritance.** A branch child (the row rendered with a └─/├─ stem under its parent)
+  inherits its parent's icon and colour instead of falling back to its own state icon — a
+  branch-of-a-branch inherits through the chain, and a child with its own override still wins.
+  Toggle: pane → جلسات → *وراثة أيقونة المحادثة الأم*.
+- **The active conversation's own look** — icon, colour and size, all optional (pane → جلسات).
+- `scripts/check-hooks.sh` now watches the branch-stem span, the active-row class and the
+  `data-row-actions` slot (21 anchors).
+
+**Fixed**
+
+- **A reloaded plugin's previous incarnation kept running.** The app disposes what goes through
+  `ctx`, not module scope, so the old instance's `MutationObserver` and 4 s safety net stayed alive
+  and fought the new one (icons flickering back). `register()` now hands the previous incarnation's
+  teardown over via `ctx.onDispose` plus a `window.__hermesSessionStylerCleanup` marker, and the
+  teardown marks the instance **dead** so a queued mutation or an already-scheduled timer cannot
+  re-arm it.
+- **Clearing a per-conversation override did nothing.** The config store deep-merges patches, so a
+  deleted key came straight back; override writes now assign that map instead of merging it, and an
+  empty/false field drops the entry entirely.
+
+**Tests**: 86 assertions (adds the ✦ menu round-trip, branch inheritance in all four shapes, the
+selected-conversation look, and the hot-reload handover).
+
 ## 1.0.1 — 2026-09-17
 
 **Fixed**
