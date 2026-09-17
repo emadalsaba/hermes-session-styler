@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.1 — 2026-09-17
+
+**Fixed — the package now passes the plugin validator**
+
+- Added `__init__.py`. A Hermes package needs an importable module beside `plugin.yaml`, and the
+  catalog's pinned-source gate fails without one (`hermes plugins doctor` → "No __init__.py"). It is a
+  documented stub: the plugin is a desktop plugin, so the agent half contributes no tools, hooks,
+  middleware or environment variables — which is exactly what `plugin.yaml` declares.
+- `plugin.yaml` completed to the reviewed shape (`kind: standalone`, `requires_hermes`).
+
 ## 1.3.0 — 2026-09-17
 
 **Changed — packaged the way the official catalog expects**

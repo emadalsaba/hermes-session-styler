@@ -377,7 +377,7 @@ function t(key, ...args) {
 }
 
 const ID = 'session-styler'
-const VERSION = '1.3.0'
+const VERSION = '1.3.1'
 const STYLE_ID = 'hermes-session-styler-style'
 const STORE_KEY = 'config'
 
