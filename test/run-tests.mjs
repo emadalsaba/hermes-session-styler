@@ -63,6 +63,11 @@ const ctx = {
   socket: () => () => undefined,
   onEvent: () => () => undefined,
   os: { writeClipboard: text => SDK.clipboard.push(text) },
+  i18n: {
+    register: bundles => SDK.pluginI18n.register('session-styler', bundles),
+    /* ctx.i18n.t is the module-level, locale-aware translator */
+    t: (key, ...args) => SDK.translateNow('session-styler', key, ...args)
+  },
   storage: {
     get: (key, fallback) => {
       const hit = saved.filter(entry => entry.key === key).pop()
@@ -79,14 +84,18 @@ const ctx = {
  *  previous one first, so two instances never annotate the same DOM with
  *  different configs. */
 const instances = []
-async function boot(config, { rows = null } = {}) {
+async function boot(config, { rows = null, server = null } = {}) {
   /* Unload the previous incarnation through the SAME handle a reload uses
    * (ctx.onDispose → window.__hermesSessionStylerCleanup), so one process can
    * host many boots without them annotating the same DOM. */
   if (typeof window.__hermesSessionStylerCleanup === 'function') window.__hermesSessionStylerCleanup()
   await new Promise(resolve => setTimeout(resolve, 60))
   if (rows) document.body.innerHTML = ROW_HTML(rows)
-  saved.push({ key: 'config', value: config })
+  /* a fresh canned gateway per section, so a previous section's mirror can't
+   * leak into this one's config (that leak is exactly what the pull does) */
+  SDK.rpc.calls.length = 0
+  SDK.rpc.profiles = [{ name: 'odoo', ui_meta: server ? { 'session-styler': server } : {} }]
+  saved.push({ key: 'config', value: { updatedAt: Date.now(), ...config } })
   const regs = []
   const localCtx = {
     ...ctx,
@@ -190,7 +199,10 @@ await new Promise(resolve => setTimeout(resolve, 250))
 check('emoji mode injects one icon per state row', doc.querySelectorAll('.hms-icon').length >= 4, String(doc.querySelectorAll('.hms-icon').length))
 check('working row got the ⚡ icon', byTitle('Deploy Hermes update')?.innerHTML.includes('⚡'))
 check('idle row got no icon (empty byState)', !(byTitle('Odoo sync report')?.innerHTML.includes('hms-icon')))
-check('lead cell hides the core dot when iconed', Boolean(byTitle('Deploy Hermes update')?.querySelector('[data-hms-hide-dot]')))
+/* 1.2.0: the leading mark is the icon PLUS the state beside it — the core dot
+ * stays (shrunk), so a custom icon never costs you the status. */
+const leadCell = byTitle('Deploy Hermes update')?.querySelector('span[class*="place-items-center"]')
+check('lead shows the icon and keeps the state dot', Boolean(leadCell?.querySelector('.hms-icon')) && !leadCell?.hasAttribute('data-hms-hide-dot') && leadCell?.getAttribute('data-hms-state-mark') === 'dot')
 
 /* ------------------------------------------------------------- 6. size preset */
 SDK.notifications.length = 0
@@ -298,7 +310,9 @@ check('override persisted under sessionOverrides', saved.some(e => e.key === 'co
 const star2 = byTitle('Odoo sync report')?.querySelector('.hms-rowbtn')
 star2?.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true, cancelable: true, clientX: 40, clientY: 200 }))
 const fresh = doc.querySelector('.hms-menu')
-const backBtn = fresh ? Array.from(fresh.querySelectorAll('.hms-menu-act')).find(node => node.textContent.includes('متابعة الحالة')) : null
+const backBtn = fresh
+  ? Array.from(fresh.querySelectorAll('.hms-menu-act')).find(node => /Back to the state icon|متابعة الحالة/.test(node.textContent))
+  : null
 backBtn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
 await new Promise(resolve => setTimeout(resolve, 200))
 check('«متابعة الحالة» clears the override', !(saved.filter(e => e.key === 'config').at(-1)?.value?.sessionOverrides?.['odoo::Odoo sync report']), JSON.stringify(saved.filter(e => e.key === 'config').at(-1)?.value?.sessionOverrides))
@@ -366,6 +380,57 @@ doc.body.appendChild(late)
 await new Promise(resolve => setTimeout(resolve, 400))
 check('a row appearing after the reload is styled by the live instance', late.querySelector('.hms-icon')?.textContent === '🟢', `icon=${late.querySelector('.hms-icon')?.textContent}`)
 check('and the main list still has its icons', doc.querySelectorAll('.hms-icon').length >= 4, String(doc.querySelectorAll('.hms-icon').length))
+
+/* ------------------------------------------- 16. the lead's three layouts */
+await boot(
+  { on: true, icons: { mode: 'emoji' }, lead: { enabled: true, state: 'glyph', stateSize: 8, gap: 4, stateByState: { working: '🟠' } } },
+  { rows: DEFAULT_ROWS }
+)
+const glyphLead = byTitle('Deploy Hermes update')?.querySelector('span[class*="place-items-center"]')
+check('glyph mode draws the state as a second node', Boolean(glyphLead?.querySelector('.hms-icon-state')))
+check('glyph mode hides the core dot', glyphLead?.hasAttribute('data-hms-hide-dot') === true)
+check('glyph state mark is stamped', glyphLead?.getAttribute('data-hms-state-mark') === 'glyph')
+check('state mark size reaches the stylesheet', (styleNode()?.textContent || '').includes('--hms-state-size: 8px'))
+
+await boot({ on: true, icons: { mode: 'emoji' }, lead: { enabled: false } }, { rows: DEFAULT_ROWS })
+const dotLead = byTitle('Deploy Hermes update')?.querySelector('span[class*="place-items-center"]')
+check('lead disabled → no injected icon', !dotLead?.querySelector('.hms-icon'))
+check('lead disabled → the core dot is untouched', !dotLead?.hasAttribute('data-hms-hide-dot'))
+
+/* ------------------------------------------------------- 17. plugin i18n */
+check('ctx.i18n.register received both bundles', Boolean(SDK.pluginI18n) && renderToStaticMarkup(await registrations.find(e => e.area === SDK.PANES_AREA).render()).includes('Icons'))
+SDK.pluginI18n.locale = 'ar'
+const paneAr = renderToStaticMarkup(await registrations.find(e => e.area === SDK.PANES_AREA).render())
+check('pane follows the active locale (ar)', paneAr.includes('أيقونات') && !paneAr.includes('>Icons<'), paneAr.slice(0, 80))
+SDK.pluginI18n.locale = 'en'
+const paneEn = renderToStaticMarkup(await registrations.find(e => e.area === SDK.PANES_AREA).render())
+check('pane follows the active locale (en)', paneEn.includes('>Icons<'))
+
+/* --------------------------------------- 18. settings travel between machines */
+await boot({ on: true, icons: { mode: 'emoji' }, sync: { on: true } }, { rows: DEFAULT_ROWS })
+/* a real change (pick an icon from the row's ✦ menu) must reach the profile */
+const syncStar = byTitle('Deploy Hermes update')?.querySelector('.hms-rowbtn')
+syncStar?.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true, cancelable: true }))
+const syncMenu = doc.querySelector('.hms-menu')
+syncMenu?.querySelectorAll('.hms-menu-emoji').forEach(node => {
+  if (node.textContent === '🚀') node.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
+})
+await new Promise(resolve => setTimeout(resolve, 2400))
+const pushCall = SDK.rpc.calls.filter(call => call.method === 'profiles.configure').at(-1)
+const pushedBlob = pushCall?.params?.ui_meta?.['session-styler']
+check('a change is mirrored to the profile store', Boolean(pushedBlob))
+check('the mirrored blob carries the per-conversation icons', pushedBlob?.sessionOverrides?.['system-update::Deploy Hermes update']?.icon === '🚀')
+check('the mirror targets the active profile', pushCall?.params?.name === 'odoo', String(pushCall?.params?.name))
+
+/* a NEW machine: empty local config, the server already holds the icons */
+await boot(
+  { on: true, sync: { on: true }, icons: { mode: 'dot' } },
+  { rows: DEFAULT_ROWS, server: { plugin: 'session-styler', version: '1.2.0', updatedAt: Date.now() + 5000, icons: { mode: 'emoji' }, sessionOverrides: { 'system-update::Deploy Hermes update': { icon: '🚀' } } } }
+)
+await new Promise(resolve => setTimeout(resolve, 1800))
+check('a fresh machine restores the per-conversation icons from the profile', byTitle('Deploy Hermes update')?.querySelector('.hms-icon')?.textContent === '🚀', `icon=${byTitle('Deploy Hermes update')?.querySelector('.hms-icon')?.textContent}`)
+check('a fresh machine restores the style settings too', styleNode()?.textContent.includes('--hms-icon-size') && doc.querySelectorAll('.hms-icon').length >= 3, String(doc.querySelectorAll('.hms-icon').length))
+check('the restore reports itself', SDK.notifications.some(n => (n.message || '').includes('restored') || (n.message || '').includes('استرجع') || (n.message || '').includes('بروفايل')), JSON.stringify(SDK.notifications.at(-1)))
 
 console.log('\nSession Styler — plugin harness\n' + '='.repeat(46))
 for (const result of results) {

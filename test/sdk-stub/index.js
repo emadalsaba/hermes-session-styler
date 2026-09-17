@@ -1,6 +1,8 @@
 /**
  * Stand-in for @hermes/plugin-sdk, used only by the local test harness.
- * Mirrors the real exports the plugin imports, with the same shapes.
+ * Mirrors the real exports the plugin imports, with the same shapes — plus the
+ * plugin i18n registry and the gateway RPC door (profiles.list /
+ * profiles.configure) the plugin needs for cross-machine settings.
  */
 import { createElement, useSyncExternalStore } from 'react'
 
@@ -40,9 +42,37 @@ export function cn(...parts) {
 export const notifications = []
 export const clipboard = []
 
+/* ---- plugin i18n (same resolution as core: active locale → en → key) ---- */
+const pluginLocales = new Map()
+export const pluginI18n = {
+  register(id, bundles) {
+    pluginLocales.set(id, { ...(pluginLocales.get(id) || {}), ...bundles })
+  },
+  locale: 'en'
+}
+function translateWith(id) {
+  return (key, ...args) => {
+    const bundles = pluginLocales.get(id) || {}
+    const active = bundles[pluginI18n.locale] || {}
+    const value = active[key] ?? bundles.en?.[key]
+    return typeof value === 'function' ? value(...args) : value ?? key
+  }
+}
+export function usePluginI18n(id) {
+  return translateWith(id)
+}
+
+/** Module-level translator against the active locale (ctx.i18n.t in the app). */
+export function translateNow(id, key, ...args) {
+  return translateWith(id)(key, ...args)
+}
+
+/* ---- canned gateway: profiles.list / profiles.configure, recorded ---- */
+export const rpc = { calls: [], profiles: [{ name: 'odoo', ui_meta: {} }] }
+
 export const host = {
   state: {
-    profile: { get: () => 'default', subscribe: () => () => undefined },
+    profile: { get: () => 'odoo', subscribe: () => () => undefined },
     gateway: { get: () => 'open', subscribe: () => () => undefined }
   },
   notify: input => notifications.push({ kind: input?.kind, message: input?.message }),
@@ -50,7 +80,18 @@ export const host = {
   logs: () => undefined,
   navigate: () => undefined,
   onEvent: () => () => undefined,
-  request: async () => ({})
+  request: async (method, params) => {
+    rpc.calls.push({ method, params })
+    if (method === 'profiles.list') {
+      return { profiles: rpc.profiles }
+    }
+    if (method === 'profiles.configure') {
+      const target = rpc.profiles.find(row => row.name === (params?.name || 'odoo')) || rpc.profiles[0]
+      target.ui_meta = { ...(target.ui_meta || {}), ...(params?.ui_meta || {}) }
+      return { ok: true, applied: { ui_meta: true } }
+    }
+    return {}
+  }
 }
 
 export function haptic() {}

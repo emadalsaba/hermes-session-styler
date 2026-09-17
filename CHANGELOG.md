@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.2.0 — 2026-09-17
+
+**Added / Changed**
+
+- **The leading mark is two parts.** A conversation's own icon now sits next to its *state* mark
+  instead of replacing it: `أيقونة + حالة` (default — the core dot stays, just smaller), `أيقونة فقط`,
+  or `نقطة فقط`. The state beside it can be the dot, a per-state icon, or nothing, with its own size
+  and gap. So a conversation with a custom icon never loses its status again.
+- **The plugin speaks the app's language.** Full `ar` + `en` bundles registered through
+  `ctx.i18n.register`, resolved against the app's active locale (`usePluginI18n` in the pane,
+  `ctx.i18n.t` in the row menu, toasts and palette labels); other locales fall back to English.
+  Adding a locale is one more bundle in `MESSAGES`.
+- **Settings follow you to a new machine.** Per-conversation icons and every style setting are
+  mirrored into the **active profile's `ui_meta` on the gateway** (`profiles.configure`), keyed
+  `session-styler`. `ctx.storage` is `window.localStorage` (per machine), so this is the piece that
+  makes a new machine — install the plugin, connect to the same profile — restore the same icons on
+  load. A newer server blob wins over an older local one; every local change is stamped and pushed
+  (debounced), and the state of the mirror is shown in the pane (متقدم → مزامنة بين الأجهزة) with a
+  *Sync now* button and a new ⌘K command.
+
+**Fixed**
+
+- A torn-down plugin instance also cancels its pending settings push (it could otherwise mirror a
+  stale config after a reload).
+- With the leading mark switched off, the core dot is left exactly as core drew it (it used to be
+  hidden by the icon logic).
+
+**Tests**: 101 assertions (adds the three lead layouts, the locale switch, the mirror push, and the
+restore-on-a-fresh-machine path).
+
 ## 1.1.0 — 2026-09-17
 
 **Added**

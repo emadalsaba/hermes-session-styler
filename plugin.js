@@ -41,10 +41,300 @@ import {
   cn,
   haptic,
   host,
-  useValue
+  useValue,
+  usePluginI18n
 } from '@hermes/plugin-sdk'
 import { useEffect, useRef, useState } from 'react'
 import { jsx, jsxs } from 'react/jsx-runtime'
+
+const MESSAGES = {
+  en: {
+    "tabSessions": "Sessions",
+    "tabIcons": "Icons",
+    "tabColors": "Colors",
+    "tabSize": "Sizes",
+    "tabRules": "Rules",
+    "tabAdvanced": "Advanced",
+    "stateIdle": "idle",
+    "stateWorking": "working",
+    "stateStalled": "stalled",
+    "stateNeedsInput": "needs input",
+    "stateUnread": "unread",
+    "stateBackground": "background",
+    "stateDraft": "draft",
+    "noTitle": "(untitled)",
+    "preview": "preview",
+    "previewIdle": "Idle session",
+    "previewWorking": "Working session",
+    "previewUnread": "Unread session",
+    "menuIcon": "Icon for this conversation",
+    "menuCustomPlaceholder": "any emoji / glyph",
+    "apply": "Apply",
+    "menuColor": "Icon colour",
+    "menuInherit": "Inherit from the parent",
+    "menuBackToState": "Back to the state icon",
+    "menuHideOn": "☑ Hide this conversation",
+    "menuHideOff": "☐ Hide this conversation",
+    "menuFoot": "The plain dot comes back with “Back to the state icon”. Settings follow the title.",
+    "menuAuto": "auto",
+    "menuCustom": "custom icon",
+    "menuBranch": "branch",
+    "rowButtonTip": "Icon for this conversation",
+    "noRowsMatched": "no session row matched",
+    "rowsLabel": "rows: ",
+    "iconedLabel": "iconed: ",
+    "branchInheritance": "Branch inheritance (child takes the parent icon)",
+    "hoverButton": "Hover ✦ button on each row",
+    "hoverHint": "To change one conversation: hover its row, press ✦ (or ⌘K → “Icon for the active conversation”), then pick. A branch child inherits its parent automatically.",
+    "selectedIcon": "Icon for the active conversation",
+    "selectedColor": "Colour for the active conversation",
+    "selectedSize": "Size for the active conversation",
+    "autoLabel": "auto",
+    "visibleSessions": "Visible conversations",
+    "rowNotVisible": "that row is not visible right now",
+    "edit": "Edit",
+    "customize": "Customize",
+    "noRowsVisible": "no rows visible",
+    "modeLabel": "Mode",
+    "modeDot": "core dot",
+    "modeEmoji": "emoji",
+    "modeCodicon": "codicon",
+    "coreDotNote": "The plain dot is kept — pick emoji or codicon to replace it. Leading icon + state: give the conversation its own icon and keep the status dot beside it.",
+    "iconSize": "Icon size",
+    "leadLayout": "Leading mark",
+    "leadBoth": "icon + state",
+    "leadIconOnly": "icon only",
+    "leadDotOnly": "dot only",
+    "stateIndicator": "State indicator beside it",
+    "stateDot": "dot",
+    "stateGlyph": "icon",
+    "stateNone": "none",
+    "stateSize": "State mark size",
+    "enableColors": "Enable colour overrides",
+    "colorsEmptyNote": "Empty = keep the core colour.",
+    "dotColor": "dot colour",
+    "iconColorAll": "Icon colour (all states)",
+    "titleColor": "Title colour",
+    "metaColor": "Meta / age colour",
+    "rowTint": "Row background tint",
+    "tintColor": "Tint colour",
+    "tintStrength": "Tint strength",
+    "enableSizes": "Enable size overrides",
+    "presetCompact": "Compact",
+    "presetRoomy": "Roomy",
+    "measureNow": "Measure current",
+    "noRowToMeasure": "no row to measure",
+    "rowHeight": "Row height",
+    "titleSize": "Title size",
+    "metaSize": "Meta size",
+    "leadBox": "Icon cell width",
+    "gapLabel": "Gap",
+    "radiusLabel": "Corners",
+    "rulesIntro": "A rule = match (type/value) → icon, colour or hide. Rules apply to the real rows immediately.",
+    "ruleTitle": "title",
+    "ruleProfile": "profile",
+    "ruleState": "state",
+    "ruleTitlePlaceholder": "text or regex (e.g. odoo|pdf)",
+    "ruleProfilePlaceholder": "profile name",
+    "ruleIconPlaceholder": "icon",
+    "ruleColorPlaceholder": "colour (#hex / var)",
+    "hideRow": "Hide the row",
+    "needsValue": "the rule needs a value",
+    "addRule": "Add rule",
+    "hideTag": "hide",
+    "noRules": "no rules yet",
+    "advIntro": "If an update changes the markup, paste a new selector here — no file edit. Leave it empty for the default.",
+    "hooksUpdated": "hooks updated",
+    "saveHooks": "Save hooks",
+    "defaultBtn": "Default",
+    "diagnosticsCopied": "diagnostics copied",
+    "clipboardUnavailable": "clipboard unavailable",
+    "copyDiagnostics": "Copy diagnostics",
+    "resetDone": "reset",
+    "resetBtn": "Reset",
+    "jsonExport": "Export / import JSON",
+    "showCurrent": "Show current",
+    "imported": "imported",
+    "importBtn": "Import",
+    "chipTip": "Session Styler — click to toggle",
+    "cmdToggle": "Session Styler: on / off",
+    "cmdCompact": "Session Styler: compact rows",
+    "cmdRoomy": "Session Styler: roomy rows",
+    "cmdEmoji": "Session Styler: emoji state icons",
+    "cmdCurrent": "Session Styler: icon for the active conversation",
+    "cmdReset": "Session Styler: reset to defaults",
+    "cmdResetDone": "Session Styler: defaults restored",
+    "cmdDiag": "Session Styler: copy diagnostics",
+    "cmdDiagDone": "diagnostics copied",
+    "cmdHooks": "Session Styler: check selectors",
+    "noActiveRow": "no active conversation row found",
+    "zeroRows": "no session rows matched — open the session styler pane → Advanced",
+    "hooksOkRows": " صف · ",
+    "hooksOkIcons": " أيقونة · ",
+    "hooksOk": "selectors OK",
+    "cmdSync": "Session Styler: sync settings to the profile",
+    "syncTitle": "Sync across machines",
+    "syncOn": "Store my settings on the profile (server) so a new machine gets the same icons",
+    "syncNow": "Sync now",
+    "syncPulled": "settings restored from the profile",
+    "syncPushed": "settings saved to the profile",
+    "syncFailed": "could not reach the profile store",
+    "syncNever": "not synced yet",
+    "syncLast": "last sync",
+    "syncPortableNote": "Per-conversation icons are keyed by <profile>::<title> and mirrored into the profile’s ui_meta on the gateway, so another machine connected to the same profile restores them on load."
+},
+  ar: {
+    "tabSessions": "جلسات",
+    "tabIcons": "أيقونات",
+    "tabColors": "ألوان",
+    "tabSize": "أحجام",
+    "tabRules": "قواعد",
+    "tabAdvanced": "متقدم",
+    "stateIdle": "خامل",
+    "stateWorking": "يعمل",
+    "stateStalled": "متوقف مؤقتًا",
+    "stateNeedsInput": "ينتظر إجابتك",
+    "stateUnread": "غير مقروء",
+    "stateBackground": "خلفية تعمل",
+    "stateDraft": "مسودة",
+    "noTitle": "(بدون عنوان)",
+    "preview": "معاينة",
+    "previewIdle": "جلسة خاملة",
+    "previewWorking": "جلسة تعمل",
+    "previewUnread": "جلسة غير مقروءة",
+    "menuIcon": "أيقونة هذه المحادثة",
+    "menuCustomPlaceholder": "أي رمز / أي إيموجي",
+    "apply": "تطبيق",
+    "menuColor": "لون الأيقونة",
+    "menuInherit": "وراثة من المحادثة الأم",
+    "menuBackToState": "متابعة الحالة",
+    "menuHideOn": "☑ إخفاء الجلسة",
+    "menuHideOff": "☐ إخفاء الجلسة",
+    "menuFoot": "النقطة الأصلية تعود بخيار «متابعة الحالة». التسمية تُحدَّد بالعنوان.",
+    "menuAuto": "تلقائي",
+    "menuCustom": "أيقونة مخصّصة",
+    "menuBranch": "فرعية",
+    "rowButtonTip": "أيقونة هذه المحادثة",
+    "noRowsMatched": "لم يُعثر على أي صف جلسة",
+    "rowsLabel": "صفوف: ",
+    "iconedLabel": "بأيقونة: ",
+    "branchInheritance": "وراثة أيقونة المحادثة الأم",
+    "hoverButton": "زر ✦ في الصف",
+    "hoverHint": "لتغيير أيقونة محادثة: مرّر عليها واضغط ✦ (أو الأمر «أيقونة المحادثة المفتوحة» في ⌘K) واختر. والمحادثة الفرعية ترث أيقونتها من الأم تلقائيًا.",
+    "selectedIcon": "أيقونة المحادثة المفتوحة",
+    "selectedColor": "لون أيقونة المحادثة المفتوحة",
+    "selectedSize": "حجم أيقونة المحادثة المفتوحة",
+    "autoLabel": "تلقائي",
+    "visibleSessions": "الجلسات الظاهرة",
+    "rowNotVisible": "الصف غير ظاهر الآن",
+    "edit": "تعديل",
+    "customize": "تخصيص",
+    "noRowsVisible": "لا صفوف ظاهرة",
+    "modeLabel": "النمط",
+    "modeDot": "نقطة core",
+    "modeEmoji": "إيموجي",
+    "modeCodicon": "codicon",
+    "coreDotNote": "النقطة الأصلية كما هي — اختر إيموجي أو codicon لاستبدالها. ومع «أيقونة + حالة» تبقى نقطة الحالة بجانب الأيقونة.",
+    "iconSize": "حجم الأيقونة",
+    "leadLayout": "شكل المقدّمة",
+    "leadBoth": "أيقونة + حالة",
+    "leadIconOnly": "أيقونة فقط",
+    "leadDotOnly": "نقطة فقط",
+    "stateIndicator": "مؤشر الحالة بجانبه",
+    "stateDot": "نقطة",
+    "stateGlyph": "أيقونة",
+    "stateNone": "بلا",
+    "stateSize": "حجم مؤشر الحالة",
+    "enableColors": "تشغيل تعديل الألوان",
+    "colorsEmptyNote": "فارغ = لون core الأصلي.",
+    "dotColor": "لون النقطة",
+    "iconColorAll": "لون الأيقونة (كل الحالات)",
+    "titleColor": "لون العنوان",
+    "metaColor": "لون الأرقام/الوقت",
+    "rowTint": "خلفية الصف",
+    "tintColor": "لون الخلفية",
+    "tintStrength": "شدة الخلفية",
+    "enableSizes": "تشغيل تعديل الأحجام",
+    "presetCompact": "مضغوط",
+    "presetRoomy": "واسع",
+    "measureNow": "قياس الحالي",
+    "noRowToMeasure": "لا يوجد صف للقياس",
+    "rowHeight": "ارتفاع الصف",
+    "titleSize": "حجم العنوان",
+    "metaSize": "حجم الأرقام",
+    "leadBox": "خلية الأيقونة",
+    "gapLabel": "المسافة",
+    "radiusLabel": "الحواف",
+    "rulesIntro": "قاعدة = مطابقة (نوع/قيمة) → أيقونة أو لون أو إخفاء. القواعد تُطبَّق على الصفوف الحقيقية فورًا.",
+    "ruleTitle": "عنوان",
+    "ruleProfile": "بروفايل",
+    "ruleState": "حالة",
+    "ruleTitlePlaceholder": "regex أو نص (مثال: odoo|pdf)",
+    "ruleProfilePlaceholder": "اسم البروفايل",
+    "ruleIconPlaceholder": "أيقونة",
+    "ruleColorPlaceholder": "لون (#hex / var)",
+    "hideRow": "إخفاء الصف",
+    "needsValue": "أدخل قيمة للقاعدة",
+    "addRule": "إضافة قاعدة",
+    "hideTag": "إخفاء",
+    "noRules": "لا توجد قواعد",
+    "advIntro": "إن غيّر تحديثٌ ما بنية الواجهة، الصق مُحدِّدًا جديدًا هنا — بلا تعديل الملف. اتركه فارغًا للافتراضي.",
+    "hooksUpdated": "تم تحديث المُحدِّدات",
+    "saveHooks": "حفظ المُحدِّدات",
+    "defaultBtn": "افتراضي",
+    "diagnosticsCopied": "تم نسخ التشخيص",
+    "clipboardUnavailable": "الحافظة غير متاحة",
+    "copyDiagnostics": "نسخ التشخيص",
+    "resetDone": "تمت الاستعادة",
+    "resetBtn": "استعادة",
+    "jsonExport": "تصدير/استيراد JSON",
+    "showCurrent": "عرض الحالي",
+    "imported": "تم الاستيراد",
+    "importBtn": "استيراد",
+    "chipTip": "Session Styler — اضغط للتبديل",
+    "cmdToggle": "Session Styler: تشغيل/إيقاف",
+    "cmdCompact": "Session Styler: صفوف مضغوطة",
+    "cmdRoomy": "Session Styler: صفوف واسعة",
+    "cmdEmoji": "Session Styler: أيقونات إيموجي للحالات",
+    "cmdCurrent": "Session Styler: أيقونة المحادثة المفتوحة",
+    "cmdReset": "Session Styler: استعادة الافتراضي",
+    "cmdResetDone": "Session Styler: تمت الاستعادة",
+    "cmdDiag": "Session Styler: نسخ التشخيص",
+    "cmdDiagDone": "تم نسخ التشخيص",
+    "cmdHooks": "Session Styler: فحص المُحدِّدات",
+    "noActiveRow": "لم أجد المحادثة المفتوحة",
+    "zeroRows": "لم يُعثر على صفوف — افتح لوحة session styler → متقدم",
+    "hooksOkRows": " صف · ",
+    "hooksOkIcons": " أيقونة · ",
+    "hooksOk": "المُحدِّدات سليمة",
+    "cmdSync": "Session Styler: مزامنة الإعدادات إلى البروفايل",
+    "syncTitle": "مزامنة بين الأجهزة",
+    "syncOn": "احفظ إعداداتي في البروفايل (على السيرفر) ليستعيدها أي جهاز جديد",
+    "syncNow": "مزامنة الآن",
+    "syncPulled": "تم استرجاع الإعدادات من البروفايل",
+    "syncPushed": "تم حفظ الإعدادات في البروفايل",
+    "syncFailed": "تعذّر الوصول إلى مخزن البروفايل",
+    "syncNever": "لم تُزامَن بعد",
+    "syncLast": "آخر مزامنة",
+    "syncPortableNote": "أيقونات المحادثات مفتاحها <بروفايل>::<العنوان> وتُحفظ في ui_meta للبروفايل على السيرفر، فيستعيدها أي جهاز آخر متصل بنفس البروفايل عند التحميل."
+}
+}
+
+/** The active translator. `ctx.i18n` supplies the app-locale one at register
+ *  time; the built-in English bundle is the fallback so module-level code (the
+ *  row menu, toasts, palette labels) is never untranslated. */
+let translator = null
+function t(key, ...args) {
+  if (translator) {
+    try {
+      return translator(key, ...args)
+    } catch {
+      /* fall through to the built-in bundle */
+    }
+  }
+  const value = MESSAGES.en[key]
+  return typeof value === 'function' ? value(...args) : value ?? key
+}
 
 const ID = 'session-styler'
 const VERSION = '1.1.0'
@@ -101,6 +391,11 @@ const DEFAULTS = {
   on: true,
   /* icons: mode 'dot' keeps the core dot; 'emoji' / 'codicon' replace it. */
   icons: { mode: 'emoji', size: 13, color: '', byState: { idle: '', working: '⚡', stalled: '⏳', needsInput: '❗', unread: '🟢', background: '📡', draft: '📝' } },
+  /* The leading mark is TWO parts: the conversation's own icon, then the state
+   * right beside it — so a conversation with a custom icon never loses its
+   * status. `state: 'dot'` keeps the core dot (just smaller), 'glyph' swaps in
+   * a per-state icon, 'none' shows the icon alone. */
+  lead: { enabled: true, state: 'dot', stateSize: 7, gap: 3, stateByState: { idle: '', working: '', stalled: '', needsInput: '', unread: '', background: '', draft: '' } },
   colors: { on: false, states: { idle: '', working: '', stalled: '', needsInput: '', unread: '', background: '', draft: '' }, icon: '', title: '', meta: '', tint: false, tintColor: '', tintStrength: 12 },
   size: { on: false, rowHeight: 26, label: 13, meta: 10, lead: 14, gap: 6, radius: 6 },
   rules: [],
@@ -116,6 +411,10 @@ const DEFAULTS = {
   /* Look of the conversation you are currently in (core paints the row with
    * bg-(--ui-row-active-background)). */
   selected: { icon: '', color: '', size: 0 },
+  /* Mirror the settings into the profile's ui_meta on the gateway, so a new
+   * machine connected to the same profile restores them on load. */
+  sync: { on: true },
+  updatedAt: 0,
   maxRules: 40,
   hooks: {}
 }
@@ -129,13 +428,13 @@ const PRESETS = {
 const ICON_PALETTE = ['⚡', '🔥', '✅', '⏳', '❗', '🟢', '🟡', '🔴', '🔵', '🟣', '📦', '🧪', '🧩', '🚀', '💎', '⭐', '🎯', '📌', '🧠', '🤖', '🛠️', '💤', '📝', '📡', '🔒', '✦', '●', '▲', '★', '—']
 const COLOR_SWATCHES = ['var(--ui-accent)', 'var(--ui-success)', '#f43f5e', '#f97316', '#f59e0b', '#22c55e', '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899', '#94a3b8']
 const STATE_LABEL = {
-  idle: 'خامل / idle',
-  working: 'يعمل / working',
-  stalled: 'متوقف مؤقتًا / stalled',
-  needsInput: 'ينتظر إجابتك / needs input',
-  unread: 'غير مقروء / unread',
-  background: 'خلفية تعمل / background',
-  draft: 'مسودة / draft'
+  idle: t('stateIdle'),
+  working: t('stateWorking'),
+  stalled: t('stateStalled'),
+  needsInput: t('stateNeedsInput'),
+  unread: t('stateUnread'),
+  background: t('stateBackground'),
+  draft: t('stateDraft')
 }
 
 function merge(base, patch) {
@@ -218,9 +517,11 @@ function persist() {
 function setConfig(patch, { silent, replace } = {}) {
   const next = merge($config.get(), patch)
   for (const key of replace || []) next[key] = patch[key]
+  next.updatedAt = Date.now()
   $config.set(next)
   persist()
   applyAll()
+  scheduleSyncPush()
   if (!silent) haptic('tap')
 }
 
@@ -352,6 +653,8 @@ function cssFor(cfg, hooks) {
 
   const iconSize = px(cfg.icons.size)
   vars.push(`--hms-icon-size: ${iconSize || '13px'};`)
+  vars.push(`--hms-lead-gap: ${px(cfg.lead?.gap) || '3px'};`)
+  vars.push(`--hms-state-size: ${px(cfg.lead?.stateSize) || '7px'};`)
 
   if (cfg.colors.on) {
     for (const state of STATES) {
@@ -430,7 +733,11 @@ function cssFor(cfg, hooks) {
   rules.push('.hms-menu-swatch.is-active{outline:1px solid var(--ui-accent);outline-offset:1px;}')
   rules.push('.hms-menu-actions{display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.5rem;}')
   rules.push('.hms-menu-foot{margin-top:0.375rem;color:var(--ui-text-quaternary);font-size:0.5625rem;line-height:1.4;}')
-  rules.push('[data-hms-hide-dot] > span:not(.hms-icon){display:none !important;}')
+  rules.push('[data-hms-hide-dot] > span:not(.hms-icon):not(.hms-icon-state){display:none !important;}')
+  /* two-part lead: the cell grows to fit the icon and the state mark */
+  rules.push('[data-hms-primary="1"]{display:inline-flex !important;align-items:center;gap:var(--hms-lead-gap,3px);width:auto !important;overflow:visible !important;}')
+  rules.push('[data-hms-primary="1"][data-hms-state-mark="dot"] > span > span[class*="rounded-full"]{width:var(--hms-state-size,7px) !important;height:var(--hms-state-size,7px) !important;}')
+  rules.push('.hms-icon-state{display:inline-flex;align-items:center;justify-content:center;line-height:1;font-size:var(--hms-state-size,7px);font-style:normal;}')
   rules.push('[data-hms-hidden="1"]{display:none !important;}')
 
   return `:root{${vars.join('')}}\n${rules.join('\n')}\n`
@@ -531,6 +838,105 @@ function setSessionOverride(info, patch) {
 }
 
 /* ---------------------------------------------------------------------------
+ * Portable settings — the profile's ui_meta on the gateway
+ *
+ * `ctx.storage` is window.localStorage: per machine. Per-conversation icons are
+ * keyed by <profile>::<title>, and the SAME blob is mirrored into the active
+ * profile's `ui_meta` (the store Bot Mode uses), which lives on the gateway —
+ * so a new machine connecting to that profile pulls it back on load.
+ * ------------------------------------------------------------------------ */
+const $sync = atom({ at: 0, error: '', state: 'idle' })
+let syncPushTimer = null
+
+function portableSlice() {
+  const cfg = $config.get()
+  const out = { plugin: ID, updatedAt: cfg.updatedAt || Date.now(), version: VERSION }
+  for (const field of PORTABLE_FIELDS) out[field] = cfg[field]
+  return out
+}
+
+function applyPortable(blob) {
+  if (!blob || typeof blob !== 'object') return false
+  const patch = {}
+  for (const field of PORTABLE_FIELDS) {
+    if (blob[field] !== undefined) patch[field] = blob[field]
+  }
+  if (!Object.keys(patch).length) return false
+  const next = merge($config.get(), patch)
+  next.updatedAt = Number(blob.updatedAt) || Date.now()
+  $config.set(next)
+  persist()
+  applyAll()
+  return true
+}
+
+/** Newest `ui_meta['session-styler']` across the profiles this gateway serves. */
+async function pullSync() {
+  try {
+    const res = await host.request('profiles.list', { include_sessions: false })
+    const rows = (res && res.profiles) || []
+    let best = null
+    for (const row of rows) {
+      const blob = row && row.ui_meta && row.ui_meta[PORTABLE_KEY]
+      if (blob && typeof blob === 'object' && !best) best = blob
+      else if (blob && typeof blob === 'object' && Number(blob.updatedAt) > Number(best.updatedAt || 0)) best = blob
+    }
+    return best
+  } catch {
+    return null
+  }
+}
+
+async function pushSync({ silent } = {}) {
+  if (runtime.dead) return false
+  const cfg = $config.get()
+  if (!cfg.sync?.on) return false
+  try {
+    const profile = (host.state.profile.get() || 'default').trim() || 'default'
+    const res = await host.request('profiles.configure', {
+      name: profile,
+      ui_meta: { [PORTABLE_KEY]: portableSlice() }
+    })
+    const ok = Boolean(res && res.applied && res.applied.ui_meta !== false) || Boolean(res && res.ok)
+    $sync.set({ at: Date.now(), error: ok ? '' : 'rejected', state: ok ? 'pushed' : 'error' })
+    if (!silent) host.notify({ kind: ok ? 'info' : 'warn', message: ok ? t('syncPushed') : t('syncFailed') })
+    return ok
+  } catch (err) {
+    $sync.set({ at: Date.now(), error: String((err && err.message) || err), state: 'error' })
+    if (!silent) host.notify({ kind: 'error', message: t('syncFailed') })
+    return false
+  }
+}
+
+function scheduleSyncPush() {
+  if (runtime.dead || !$config.get().sync?.on) return
+  if (syncPushTimer) clearTimeout(syncPushTimer)
+  syncPushTimer = setTimeout(() => {
+    syncPushTimer = null
+    void pushSync({ silent: true })
+  }, 1500)
+}
+
+/** On load: adopt the server blob when it is newer than what this machine has. */
+async function restoreFromProfile() {
+  const blob = await pullSync()
+  if (!blob) {
+    $sync.set({ at: 0, error: '', state: 'idle' })
+    return false
+  }
+  if (Number(blob.updatedAt || 0) <= Number($config.get().updatedAt || 0)) {
+    $sync.set({ at: Number(blob.updatedAt) || Date.now(), error: '', state: 'pulled' })
+    return false
+  }
+  const applied = applyPortable(blob)
+  if (applied) {
+    $sync.set({ at: Number(blob.updatedAt) || Date.now(), error: '', state: 'pulled' })
+    host.notify({ kind: 'info', message: t('syncPulled') })
+  }
+  return applied
+}
+
+/* ---------------------------------------------------------------------------
  * The row's own ✦ menu (plain DOM — plugins cannot mount React outside a
  * contribution, and no react-dom is importable)
  * ------------------------------------------------------------------------ */
@@ -575,18 +981,18 @@ function openSessionMenu(shell, event) {
 
   /* header */
   const head = el('div', 'hms-menu-head')
-  head.appendChild(el('div', 'hms-menu-title', info.title || '(بدون عنوان)'))
+  head.appendChild(el('div', 'hms-menu-title', info.title || t('noTitle')))
   head.appendChild(
     el(
       'div',
       'hms-menu-sub',
-      `${info.profile ? `${info.profile} · ` : ''}${info.stem ? 'فرعية / branch ' : ''}${override.icon ? 'أيقونة مخصّصة / custom' : 'تلقائي / auto'}`
+      `${info.profile ? `${info.profile} · ` : ''}${info.stem ? t('menuBranch') + ' ' : ''}${override.icon ? t('menuCustom') : t('menuAuto')}`
     )
   )
   menu.appendChild(head)
 
   /* icon grid */
-  menu.appendChild(el('div', 'hms-menu-label', 'أيقونة هذه المحادثة / icon'))
+  menu.appendChild(el('div', 'hms-menu-label', t('menuIcon')))
   const grid = el('div', 'hms-menu-grid')
   for (const icon of ICON_PALETTE) {
     const button = el('button', cn('hms-menu-emoji', override.icon === icon && 'is-active'), icon)
@@ -604,10 +1010,10 @@ function openSessionMenu(shell, event) {
   const input = document.createElement('input')
   input.className = 'hms-menu-input'
   input.setAttribute('data-hms-owned', '1')
-  input.placeholder = cfg.icons.mode === 'codicon' ? 'codicon name' : 'أي رمز / أي إيموجي'
+  input.placeholder = cfg.icons.mode === 'codicon' ? t('menuCodiconPlaceholder') : t('menuCustomPlaceholder')
   input.value = override.icon || ''
   customRow.appendChild(input)
-  const apply = el('button', 'hms-menu-act', 'تطبيق')
+  const apply = el('button', 'hms-menu-act', t('apply'))
   apply.type = 'button'
   apply.addEventListener('click', () => {
     setSessionOverride(info, { icon: input.value.trim() })
@@ -617,7 +1023,7 @@ function openSessionMenu(shell, event) {
   menu.appendChild(customRow)
 
   /* color */
-  menu.appendChild(el('div', 'hms-menu-label', 'لون الأيقونة / color'))
+  menu.appendChild(el('div', 'hms-menu-label', t('menuColor')))
   const colors = el('div', 'hms-menu-row')
   for (const color of COLOR_SWATCHES.slice(0, 8)) {
     const swatch = el('button', cn('hms-menu-swatch', override.color === color && 'is-active'))
@@ -637,7 +1043,7 @@ function openSessionMenu(shell, event) {
   const inherits = el(
     'button',
     'hms-menu-act',
-    info.stem ? 'وراثة من المحادثة الأم / inherit from parent' : 'متابعة الحالة / back to state icon'
+    info.stem ? t('menuInherit') : t('menuBackToState')
   )
   inherits.type = 'button'
   inherits.addEventListener('click', () => {
@@ -645,7 +1051,7 @@ function openSessionMenu(shell, event) {
     openSessionMenu(shell)
   })
   actions.appendChild(inherits)
-  const hideBtn = el('button', 'hms-menu-act', override.hide ? '☑ إخفاء الجلسة' : '☐ إخفاء الجلسة')
+  const hideBtn = el('button', 'hms-menu-act', override.hide ? t('menuHideOn') : t('menuHideOff'))
   hideBtn.type = 'button'
   hideBtn.addEventListener('click', () => {
     setSessionOverride(info, { hide: override.hide ? false : true })
@@ -654,7 +1060,7 @@ function openSessionMenu(shell, event) {
   actions.appendChild(hideBtn)
   menu.appendChild(actions)
 
-  menu.appendChild(el('div', 'hms-menu-foot', 'النقطة الأصلية تعود بخيار «متابعة الحالة». التسمية تُحدَّد بالعنوان.'))
+  menu.appendChild(el('div', 'hms-menu-foot', t('menuFoot')))
 
   document.body.appendChild(menu)
   menuEl = menu
@@ -686,6 +1092,42 @@ function openSessionMenu(shell, event) {
   )
 }
 
+const PORTABLE_KEY = 'session-styler'
+const PORTABLE_FIELDS = ['icons', 'lead', 'colors', 'size', 'rules', 'selected', 'sessionOverrides', 'inheritBranch']
+
+/** Render the two-part lead: the conversation's own mark, then its state.
+ *  The core dot is React's, so it is never removed — only hidden or shrunk,
+ *  which keeps a re-render from fighting us. */
+function ensureLead(lead, info, cfg) {
+  const mode = cfg.icons.mode
+  const primary = cfg.lead?.enabled === false ? '' : info.icon
+  ensureIcon(lead, primary, mode === 'codicon' ? 'codicon' : 'emoji')
+
+  const stateMark = cfg.lead?.state || 'dot'
+  const stateGlyph = stateMark === 'glyph' ? cfg.lead?.stateByState?.[info.state] || cfg.icons.byState?.[info.state] || '' : ''
+  let stateNode = lead.querySelector('.hms-icon-state')
+  if (stateMark === 'glyph' && stateGlyph) {
+    if (!stateNode) {
+      stateNode = document.createElement(mode === 'codicon' ? 'i' : 'span')
+      stateNode.setAttribute('data-hms-owned', '1')
+      lead.appendChild(stateNode)
+    }
+    const cls = mode === 'codicon' ? `codicon codicon-${stateGlyph} hms-icon-state` : 'hms-icon-state'
+    if (stateNode.className !== cls) stateNode.className = cls
+    const text = mode === 'codicon' ? '' : stateGlyph
+    if (stateNode.textContent !== text) stateNode.textContent = text
+  } else if (stateNode) {
+    stateNode.remove()
+  }
+
+  lead.setAttribute('data-hms-primary', primary ? '1' : '0')
+  lead.setAttribute('data-hms-state-mark', primary ? stateMark : 'dot')
+  /* The dot is hidden only when something REPLACES it: with no primary mark the
+   * core dot is the lead, exactly as core drew it. */
+  if (primary && (stateMark === 'none' || stateMark === 'glyph')) lead.setAttribute('data-hms-hide-dot', '1')
+  else lead.removeAttribute('data-hms-hide-dot')
+}
+
 /** The hover ✦ affordance: a real button in the row's trailing actions slot,
  *  so a conversation can be styled the way core styles it — from the row. */
 function ensureRowButton(info, hooks, show) {
@@ -708,7 +1150,7 @@ function ensureRowButton(info, hooks, show) {
     if (!host) return
     button = el('button', 'hms-rowbtn', '✦')
     button.type = 'button'
-    button.title = 'أيقونة هذه المحادثة / this conversation’s icon'
+    button.title = t('rowButtonTip')
     button.addEventListener('pointerdown', downEvent => {
       downEvent.preventDefault()
       downEvent.stopPropagation()
@@ -756,7 +1198,7 @@ function annotate() {
     }
     if (!rowSel) {
       closeSessionMenu()
-      $stats.set({ on: cfg.on, rows: 0, styled: 0, hook: 'no match', states: {}, profiles: [], warnings: ['لم يُعثر على أي صف جلسة / no session row matched'], lastRun: Date.now(), error: '' })
+      $stats.set({ on: cfg.on, rows: 0, styled: 0, hook: 'no match', states: {}, profiles: [], warnings: [t('noRowsMatched')], lastRun: Date.now(), error: '' })
       runtime.busy = false
       return
     }
@@ -871,17 +1313,16 @@ function annotate() {
       if (info.color) shell.style.setProperty('--hms-icon-rule', info.color)
       else shell.style.removeProperty('--hms-icon-rule')
 
-      const mode = cfg.icons.mode
       const lead = info.row.querySelector(selList(hooks.lead))
       if (lead) {
         lead.setAttribute('data-hms-owned', '1')
-        ensureIcon(lead, info.icon, mode === 'codicon' ? 'codicon' : 'emoji')
+        ensureLead(lead, info, cfg)
       }
       if (cfg.selected?.size && info.selected) shell.style.setProperty('--hms-icon-size', `${cfg.selected.size}px`)
       else shell.style.removeProperty('--hms-icon-size')
 
       ensureRowButton(info, hooks, cfg.rowMenu)
-      if (info.icon) styled += 1
+      if (info.icon && cfg.lead?.enabled !== false) styled += 1
       states[state] = (states[state] || 0) + 1
 
       snapshot.push({
@@ -1057,6 +1498,7 @@ function Slider({ max, min, onChange, step = 1, value }) {
 }
 
 function ColorField({ onChange, value }) {
+  const T = usePluginI18n(ID)
   const [draft, setDraft] = useState(value || '')
   useEffect(() => setDraft(value || ''), [value])
   return jsxs('div', {
@@ -1111,6 +1553,7 @@ function ColorField({ onChange, value }) {
 }
 
 function IconField({ mode, onChange, value }) {
+  const T = usePluginI18n(ID)
   return jsxs('div', {
     className: 'flex flex-col gap-1',
     children: [
@@ -1118,7 +1561,7 @@ function IconField({ mode, onChange, value }) {
         className: 'h-6 text-[0.6875rem]',
         maxLength: 32,
         onChange: event => onChange(event.target.value.trim()),
-        placeholder: mode === 'codicon' ? 'codicon name, e.g. rocket' : 'emoji / حرف',
+        placeholder: mode === 'codicon' ? t('menuCodiconPlaceholder') : t('menuCustomPlaceholder'),
         value: value || ''
       }),
       jsx('div', {
@@ -1146,6 +1589,7 @@ function IconField({ mode, onChange, value }) {
 /* A live preview that uses the REAL row markup, so the injected stylesheet
  * styles it exactly like it styles the sidebar. */
 function PreviewRow({ state, title }) {
+  const T = usePluginI18n(ID)
   const dotClass =
     state === 'working'
       ? 'size-1.5 rounded-full bg-(--ui-accent)'
@@ -1191,9 +1635,11 @@ function PreviewRow({ state, title }) {
 }
 
 function StylerPane() {
+  const T = usePluginI18n(ID)
   const cfg = useValue($config)
   const stats = useValue($stats)
   const rows = useValue($rows)
+  const sync = useValue($sync)
   const [tab, setTab] = useState('sessions')
   const [hookDraft, setHookDraft] = useState(null)
   const [ruleDraft, setRuleDraft] = useState({ type: 'title', value: '', icon: '', color: '', hide: false })
@@ -1227,9 +1673,9 @@ function StylerPane() {
         children: [
           jsxs('div', {
             children: [
-              'صفوف / rows: ',
+              t('rowsLabel'),
               jsx('span', { className: 'tabular-nums text-(--ui-text-secondary)', children: String(stats.rows) }),
-              ' · بأيقونة / iconed: ',
+              ' · ' + t('iconedLabel'),
               jsx('span', { className: 'tabular-nums text-(--ui-text-secondary)', children: String(stats.styled) })
             ]
           }),
@@ -1258,13 +1704,13 @@ function StylerPane() {
       jsxs('div', {
         className: 'flex flex-col gap-2',
         children: [
-          jsx('div', { className: 'text-[0.625rem] uppercase text-(--ui-text-quaternary)', children: 'معاينة / preview' }),
+          jsx('div', { className: 'text-[0.625rem] uppercase text-(--ui-text-quaternary)', children: T('preview') }),
           jsxs('div', {
             className: 'flex flex-col gap-0.5 rounded-md border border-(--ui-stroke-secondary) p-1',
             children: [
-              jsx(PreviewRow, { state: 'idle', title: 'Idle session' }),
-              jsx(PreviewRow, { state: 'working', title: 'Working session' }),
-              jsx(PreviewRow, { state: 'unread', title: 'Unread session' })
+              jsx(PreviewRow, { state: 'idle', title: T('previewIdle') }),
+              jsx(PreviewRow, { state: 'working', title: T('previewWorking') }),
+              jsx(PreviewRow, { state: 'unread', title: T('previewUnread') })
             ]
           })
         ]
@@ -1273,12 +1719,12 @@ function StylerPane() {
       jsx(SegmentedControl, {
         onChange: setTab,
         options: [
-          { id: 'sessions', label: 'جلسات' },
-          { id: 'icons', label: 'أيقونات' },
-          { id: 'colors', label: 'ألوان' },
-          { id: 'size', label: 'أحجام' },
-          { id: 'rules', label: 'قواعد' },
-          { id: 'adv', label: 'متقدم' }
+          { id: 'sessions', label: T('tabSessions') },
+          { id: 'icons', label: T('tabIcons') },
+          { id: 'colors', label: T('tabColors') },
+          { id: 'size', label: T('tabSize') },
+          { id: 'rules', label: T('tabRules') },
+          { id: 'adv', label: T('tabAdvanced') }
         ],
         value: tab
       }),
@@ -1289,24 +1735,24 @@ function StylerPane() {
             children: [
               jsx(Row, {
                 children: [
-                  jsx('span', { children: 'وراثة أيقونة المحادثة الأم / branch inheritance' }),
+                  jsx('span', { children: T('branchInheritance') }),
                   jsx(Switch, { checked: cfg.inheritBranch, onCheckedChange: value => setConfig({ inheritBranch: value }), size: 'xs' })
                 ]
               }),
               jsx(Row, {
                 children: [
-                  jsx('span', { children: 'زر ✦ في الصف / hover ✦ button' }),
+                  jsx('span', { children: T('hoverButton') }),
                   jsx(Switch, { checked: cfg.rowMenu, onCheckedChange: value => setConfig({ rowMenu: value }), size: 'xs' })
                 ]
               }),
               jsx('div', {
                 className: 'rounded-[3px] bg-(--ui-bg-tertiary) px-2 py-1 text-[0.625rem] leading-4 text-(--ui-text-tertiary)',
                 children: jsx('span', {
-                  children: 'لتغيير أيقونة محادثة: اضغط ✦ عند المرور عليها (أو الأمر «أيقونة المحادثة المفتوحة» في ⌘K) واختر من القائمة. المحادثة الفرعية ترث أيقونة الأم تلقائيًا.'
+                  children: T('hoverHint')
                 })
               }),
               jsx(Field, {
-                label: 'أيقونة المحادثة المفتوحة / selected icon',
+                label: T('selectedIcon'),
                 children: jsx(IconField, {
                   mode: cfg.icons.mode,
                   onChange: value => setConfig({ selected: { icon: value } }),
@@ -1314,12 +1760,12 @@ function StylerPane() {
                 })
               }),
               jsx(Field, {
-                label: 'لون أيقونة المحادثة المفتوحة / selected color',
+                label: T('selectedColor'),
                 children: jsx(ColorField, { onChange: value => setConfig({ selected: { color: value } }), value: cfg.selected?.color || '' })
               }),
               jsx(Field, {
-                hint: cfg.selected?.size ? `${cfg.selected.size}px` : 'تلقائي / auto',
-                label: 'حجم أيقونة المحادثة المفتوحة / selected size',
+                hint: cfg.selected?.size ? `${cfg.selected.size}px` : t('menuAuto'),
+                label: T('selectedSize'),
                 children: jsx(Slider, {
                   max: 26,
                   min: 0,
@@ -1332,7 +1778,7 @@ function StylerPane() {
               jsxs('div', {
                 className: 'flex items-center justify-between',
                 children: [
-                  jsx('span', { className: 'text-[0.625rem] uppercase text-(--ui-text-quaternary)', children: 'الجلسات الظاهرة / visible sessions' }),
+                  jsx('span', { className: 'text-[0.625rem] uppercase text-(--ui-text-quaternary)', children: T('visibleSessions') }),
                   jsx(Badge, { size: 'xs', variant: 'outline', children: String(rows.length) })
                 ]
               }),
@@ -1345,7 +1791,7 @@ function StylerPane() {
                         jsxs('span', {
                           className: 'flex min-w-0 flex-1 flex-col',
                           children: [
-                            jsx('span', { className: 'truncate text-[0.6875rem]', children: entry.title || '(بدون عنوان)' }),
+                            jsx('span', { className: 'truncate text-[0.6875rem]', children: entry.title || t('noTitle') }),
                             jsx('span', {
                               className: 'truncate text-[0.5625rem] text-(--ui-text-quaternary)',
                               children: `${entry.state} · ${entry.profile || '—'}${entry.branch ? ' · فرعية' : ''}${entry.selected ? ' · مفتوحة' : ''} · ${entry.source || '—'}`
@@ -1357,15 +1803,15 @@ function StylerPane() {
                           onClick: () => {
                             const shell = findShellByTitle(entry.title)
                             if (shell) openSessionMenu(shell)
-                            else host.notify({ kind: 'warn', message: 'الصف غير ظاهر الآن / row not visible' })
+                            else host.notify({ kind: 'warn', message: T('rowNotVisible') })
                           },
                           type: 'button',
-                          children: entry.custom ? 'تعديل' : 'تخصيص'
+                          children: entry.custom ? T('edit') : T('customize')
                         })
                       ]
                     }, entry.key)
                   )
-                : jsx('div', { className: 'text-[0.625rem] text-(--ui-text-quaternary)', children: 'لا صفوف ظاهرة / no rows' })
+                : jsx('div', { className: 'text-[0.625rem] text-(--ui-text-quaternary)', children: T('noRowsVisible') })
             ]
           })
         : null,
@@ -1375,12 +1821,12 @@ function StylerPane() {
             className: 'flex flex-col gap-2',
             children: [
               jsx(Field, {
-                label: 'النمط / mode',
+                label: T('modeLabel'),
                 children: jsx(SegmentedControl, {
                   onChange: mode => setConfig({ icons: { mode } }),
                   options: [
-                    { id: 'dot', label: 'نقطة core' },
-                    { id: 'emoji', label: 'إيموجي' },
+                    { id: 'dot', label: T('modeDot') },
+                    { id: 'emoji', label: T('modeEmoji') },
                     { id: 'codicon', label: 'codicon' }
                   ],
                   value: cfg.icons.mode
@@ -1389,14 +1835,75 @@ function StylerPane() {
               cfg.icons.mode === 'dot'
                 ? jsx('div', {
                     className: 'rounded-[3px] bg-(--ui-bg-tertiary) px-2 py-1 text-[0.625rem] text-(--ui-text-tertiary)',
-                    children: 'النقطة الأصلية كما هي / core dot unchanged — اختر إيموجي أو codicon لاستبدالها.'
+                    children: T('coreDotNote')
                   })
                 : null,
               jsx(Field, {
                 hint: `${cfg.icons.size}px`,
-                label: 'حجم الأيقونة / icon size',
+                label: T('iconSize'),
                 children: jsx(Slider, { max: 24, min: 8, onChange: value => setConfig({ icons: { size: value } }), value: cfg.icons.size })
               }),
+              jsx(Field, {
+                label: T('leadLayout'),
+                children: jsx(SegmentedControl, {
+                  onChange: layout =>
+                    setConfig({
+                      lead:
+                        layout === 'both'
+                          ? { enabled: true, state: cfg.lead?.state === 'none' ? 'dot' : cfg.lead?.state || 'dot' }
+                          : layout === 'icon'
+                            ? { enabled: true, state: 'none' }
+                            : { enabled: false }
+                    }),
+                  options: [
+                    { id: 'both', label: T('leadBoth') },
+                    { id: 'icon', label: T('leadIconOnly') },
+                    { id: 'dot', label: T('leadDotOnly') }
+                  ],
+                  value: cfg.lead?.enabled === false ? 'dot' : cfg.lead?.state === 'none' ? 'icon' : 'both'
+                })
+              }),
+              cfg.lead?.enabled === false
+                ? null
+                : jsx(Field, {
+                    label: T('stateIndicator'),
+                    children: jsx(SegmentedControl, {
+                      onChange: state => setConfig({ lead: { state } }),
+                      options: [
+                        { id: 'dot', label: T('stateDot') },
+                        { id: 'glyph', label: T('stateGlyph') },
+                        { id: 'none', label: T('stateNone') }
+                      ],
+                      value: cfg.lead?.state || 'dot'
+                    })
+                  }),
+              cfg.lead?.enabled === false || (cfg.lead?.state || 'dot') === 'none'
+                ? null
+                : jsx(Field, {
+                    hint: `${cfg.lead?.stateSize || 7}px`,
+                    label: T('stateSize'),
+                    children: jsx(Slider, {
+                      max: 14,
+                      min: 4,
+                      onChange: value => setConfig({ lead: { stateSize: value } }),
+                      value: cfg.lead?.stateSize || 7
+                    })
+                  }),
+              (cfg.lead?.state || 'dot') === 'glyph'
+                ? jsx('div', {
+                    className: 'flex flex-col gap-2',
+                    children: STATES.map(state =>
+                      jsx(Field, {
+                        label: `${T(`state${state.charAt(0).toUpperCase()}${state.slice(1)}`)} — ${T('stateGlyph')}`,
+                        children: jsx(IconField, {
+                          mode: cfg.icons.mode,
+                          onChange: value => setConfig({ lead: { stateByState: { [state]: value } } }),
+                          value: cfg.lead?.stateByState?.[state] || ''
+                        })
+                      }, `statemark-${state}`)
+                    )
+                  })
+                : null,
               cfg.icons.mode === 'dot'
                 ? null
                 : jsx('div', {
@@ -1433,13 +1940,13 @@ function StylerPane() {
             children: [
               jsx(Row, {
                 children: [
-                  jsx('span', { children: 'تشغيل تعديل الألوان / enable colors' }),
+                  jsx('span', { children: T('enableColors') }),
                   jsx(Switch, { checked: cfg.colors.on, onCheckedChange: value => setConfig({ colors: { on: value } }), size: 'xs' })
                 ]
               }),
               jsx('div', {
                 className: 'text-[0.625rem] text-(--ui-text-quaternary)',
-                children: 'فارغ = لون core الأصلي / empty keeps the core color.'
+                children: T('colorsEmptyNote')
               }),
               STATES.map(state =>
                 jsx(Field, {
@@ -1452,20 +1959,20 @@ function StylerPane() {
               ),
               jsx(Separator, {}),
               jsx(Field, {
-                label: 'لون الأيقونة / icon color (كل الحالات)',
+                label: T('iconColorAll'),
                 children: jsx(ColorField, { onChange: value => setConfig({ colors: { icon: value } }), value: cfg.colors.icon || '' })
               }),
               jsx(Field, {
-                label: 'لون العنوان / title color',
+                label: T('titleColor'),
                 children: jsx(ColorField, { onChange: value => setConfig({ colors: { title: value } }), value: cfg.colors.title || '' })
               }),
               jsx(Field, {
-                label: 'لون الأرقام/الوقت / meta color',
+                label: T('metaColor'),
                 children: jsx(ColorField, { onChange: value => setConfig({ colors: { meta: value } }), value: cfg.colors.meta || '' })
               }),
               jsx(Row, {
                 children: [
-                  jsx('span', { children: 'خلفية الصف / row tint' }),
+                  jsx('span', { children: T('rowTint') }),
                   jsx(Switch, { checked: cfg.colors.tint, onCheckedChange: value => setConfig({ colors: { tint: value } }), size: 'xs' })
                 ]
               }),
@@ -1474,12 +1981,12 @@ function StylerPane() {
                     className: 'flex flex-col gap-2',
                     children: [
                       jsx(Field, {
-                        label: 'لون الخلفية / tint color',
+                        label: T('tintColor'),
                         children: jsx(ColorField, { onChange: value => setConfig({ colors: { tintColor: value } }), value: cfg.colors.tintColor || '' })
                       }),
                       jsx(Field, {
                         hint: `${cfg.colors.tintStrength}%`,
-                        label: 'شدة الخلفية / tint strength',
+                        label: T('tintStrength'),
                         children: jsx(Slider, { max: 40, min: 4, onChange: value => setConfig({ colors: { tintStrength: value } }), value: cfg.colors.tintStrength })
                       })
                     ]
@@ -1495,55 +2002,55 @@ function StylerPane() {
             children: [
               jsx(Row, {
                 children: [
-                  jsx('span', { children: 'تشغيل تعديل الأحجام / enable sizes' }),
+                  jsx('span', { children: T('enableSizes') }),
                   jsx(Switch, { checked: cfg.size.on, onCheckedChange: value => setConfig({ size: { on: value } }), size: 'xs' })
                 ]
               }),
               jsxs('div', {
                 className: 'flex gap-1',
                 children: [
-                  jsx(Button, { onClick: () => setConfig({ size: { ...PRESETS.compact.size } }), size: 'xs', variant: 'outline', children: 'مضغوط' }),
-                  jsx(Button, { onClick: () => setConfig({ size: { ...PRESETS.roomy.size } }), size: 'xs', variant: 'outline', children: 'واسع' }),
+                  jsx(Button, { onClick: () => setConfig({ size: { ...PRESETS.compact.size } }), size: 'xs', variant: 'outline', children: T('presetCompact') }),
+                  jsx(Button, { onClick: () => setConfig({ size: { ...PRESETS.roomy.size } }), size: 'xs', variant: 'outline', children: T('presetRoomy') }),
                   jsx(Button, {
                     onClick: () => {
                       const sample = sampleGeometry()
                       if (sample) setConfig({ size: { ...sample, on: true } })
-                      else host.notify({ kind: 'warn', message: 'لا يوجد صف للقياس / no row to measure' })
+                      else host.notify({ kind: 'warn', message: T('noRowToMeasure') })
                     },
                     size: 'xs',
                     variant: 'outline',
-                    children: 'قياس الحالي'
+                    children: T('measureNow')
                   })
                 ]
               }),
               jsx(Field, {
                 hint: `${cfg.size.rowHeight}px`,
-                label: 'ارتفاع الصف / row height',
+                label: T('rowHeight'),
                 children: jsx(Slider, { max: 44, min: 18, onChange: value => setConfig({ size: { rowHeight: value } }), value: cfg.size.rowHeight })
               }),
               jsx(Field, {
                 hint: `${cfg.size.label}px`,
-                label: 'حجم العنوان / title size',
+                label: T('titleSize'),
                 children: jsx(Slider, { max: 18, min: 10, onChange: value => setConfig({ size: { label: value } }), value: cfg.size.label })
               }),
               jsx(Field, {
                 hint: `${cfg.size.meta}px`,
-                label: 'حجم الأرقام / meta size',
+                label: T('metaSize'),
                 children: jsx(Slider, { max: 15, min: 8, onChange: value => setConfig({ size: { meta: value } }), value: cfg.size.meta })
               }),
               jsx(Field, {
                 hint: `${cfg.size.lead}px`,
-                label: 'خلية الأيقونة / lead box',
+                label: T('leadBox'),
                 children: jsx(Slider, { max: 22, min: 10, onChange: value => setConfig({ size: { lead: value } }), value: cfg.size.lead })
               }),
               jsx(Field, {
                 hint: `${cfg.size.gap}px`,
-                label: 'المسافة / gap',
+                label: T('gapLabel'),
                 children: jsx(Slider, { max: 14, min: 2, onChange: value => setConfig({ size: { gap: value } }), value: cfg.size.gap })
               }),
               jsx(Field, {
                 hint: `${cfg.size.radius}px`,
-                label: 'الحواف / radius',
+                label: T('radiusLabel'),
                 children: jsx(Slider, { max: 16, min: 0, onChange: value => setConfig({ size: { radius: value } }), value: cfg.size.radius })
               })
             ]
@@ -1556,7 +2063,7 @@ function StylerPane() {
             children: [
               jsx('div', {
                 className: 'text-[0.625rem] text-(--ui-text-tertiary)',
-                children: 'قاعدة = مطابقة (نوع/قيمة) → أيقونة أو لون أو إخفاء. القواعد تُطبَّق على الصفوف الحقيقية فورًا.'
+                children: T('rulesIntro')
               }),
               jsxs('div', {
                 className: 'flex flex-col gap-1 rounded-md border border-(--ui-stroke-secondary) p-1.5',
@@ -1564,16 +2071,16 @@ function StylerPane() {
                   jsx(SegmentedControl, {
                     onChange: type => setRuleDraft({ ...ruleDraft, type }),
                     options: [
-                      { id: 'title', label: 'عنوان' },
-                      { id: 'profile', label: 'بروفايل' },
-                      { id: 'state', label: 'حالة' }
+                      { id: 'title', label: T('ruleTitle') },
+                      { id: 'profile', label: T('ruleProfile') },
+                      { id: 'state', label: T('ruleState') }
                     ],
                     value: ruleDraft.type
                   }),
                   jsx(Input, {
                     className: 'h-6 text-[0.6875rem]',
                     onChange: event => setRuleDraft({ ...ruleDraft, value: event.target.value }),
-                    placeholder: ruleDraft.type === 'title' ? 'regex أو نص (مثال: odoo|pdf)' : ruleDraft.type === 'profile' ? 'اسم البروفايل' : STATES.join(' | '),
+                    placeholder: ruleDraft.type === 'title' ? T('ruleTitlePlaceholder') : ruleDraft.type === 'profile' ? T('ruleProfilePlaceholder') : STATES.join(' | '),
                     value: ruleDraft.value
                   }),
                   jsxs('div', {
@@ -1582,13 +2089,13 @@ function StylerPane() {
                       jsx(Input, {
                         className: 'h-6 w-14 text-[0.6875rem]',
                         onChange: event => setRuleDraft({ ...ruleDraft, icon: event.target.value.trim() }),
-                        placeholder: 'أيقونة',
+                        placeholder: T('ruleIconPlaceholder'),
                         value: ruleDraft.icon
                       }),
                       jsx(Input, {
                         className: 'h-6 min-w-0 flex-1 text-[0.6875rem]',
                         onChange: event => setRuleDraft({ ...ruleDraft, color: event.target.value.trim() }),
-                        placeholder: 'لون (#hex / var)',
+                        placeholder: T('ruleColorPlaceholder'),
                         value: ruleDraft.color
                       })
                     ]
@@ -1602,13 +2109,13 @@ function StylerPane() {
                         type: 'button',
                         children: [
                           jsx('span', { children: ruleDraft.hide ? '☑' : '☐' }),
-                          'إخفاء الصف / hide row'
+                          T('hideRow')
                         ]
                       }),
                       jsx(Button, {
                         onClick: () => {
                           if (!ruleDraft.value.trim()) {
-                            host.notify({ kind: 'warn', message: 'أدخل قيمة للقاعدة / needs a value' })
+                            host.notify({ kind: 'warn', message: T('needsValue') })
                             return
                           }
                           const rules = (cfg.rules || []).concat([{ ...ruleDraft, id: `r${Date.now().toString(36)}` }])
@@ -1617,7 +2124,7 @@ function StylerPane() {
                         },
                         size: 'xs',
                         variant: 'default',
-                        children: 'إضافة قاعدة'
+                        children: T('addRule')
                       })
                     ]
                   })
@@ -1631,7 +2138,7 @@ function StylerPane() {
                         jsx('span', { className: 'text-[0.6875rem] text-(--ui-text-quaternary)', children: rule.type }),
                         jsx('span', { className: 'min-w-0 flex-1 truncate font-mono text-[0.625rem]', children: rule.value }),
                         rule.icon ? jsx('span', { className: 'text-[0.8125rem]', children: rule.icon }) : null,
-                        rule.hide ? jsx(Badge, { size: 'xs', variant: 'warn', children: 'hide' }) : null,
+                        rule.hide ? jsx(Badge, { size: 'xs', variant: 'warn', children: T('hideTag') }) : null,
                         jsx('button', {
                           'aria-label': 'remove',
                           className: 'grid size-5 place-items-center rounded-[3px] text-(--ui-text-quaternary) hover:bg-(--ui-control-active-background)',
@@ -1642,7 +2149,7 @@ function StylerPane() {
                       ]
                     }, rule.id || `${rule.type}-${index}`)
                   )
-                : jsx('div', { className: 'text-[0.625rem] text-(--ui-text-quaternary)', children: 'لا توجد قواعد / no rules yet' })
+                : jsx('div', { className: 'text-[0.625rem] text-(--ui-text-quaternary)', children: T('noRules') })
             ]
           })
         : null,
@@ -1653,7 +2160,7 @@ function StylerPane() {
             children: [
               jsx('div', {
                 className: 'text-[0.625rem] leading-4 text-(--ui-text-tertiary)',
-                children: 'إن غيّر تحديثٌ ما بنية الواجهة، الصق مُحدِّدًا جديدًا هنا — بلا تعديل الملف. اتركه فارغًا للافتراضي.'
+                children: T('advIntro')
               }),
               ['row', 'label', 'meta', 'lead', 'dot', 'profileGlyph'].map(key => {
                 const value = hookDraft?.[key] ?? cfg.hooks?.[key] ?? ''
@@ -1677,11 +2184,11 @@ function StylerPane() {
                       for (const [key, value] of Object.entries(hookDraft)) clean[key] = String(value || '').trim()
                       setConfig({ hooks: clean })
                       setHookDraft(null)
-                      host.notify({ kind: 'info', message: 'تم تحديث المُحدِّدات / hooks updated' })
+                      host.notify({ kind: 'info', message: t('hooksUpdated') })
                     },
                     size: 'xs',
                     variant: 'default',
-                    children: 'حفظ المُحدِّدات'
+                    children: T('saveHooks')
                   }),
                   jsx(Button, {
                     onClick: () => {
@@ -1690,31 +2197,59 @@ function StylerPane() {
                     },
                     size: 'xs',
                     variant: 'outline',
-                    children: 'افتراضي'
+                    children: T('defaultBtn')
                   }),
                   jsx(Button, {
                     onClick: () => {
                       const payload = JSON.stringify({ version: VERSION, config: $config.get(), stats: $stats.get() }, null, 2)
                       const done = copyToClipboard(payload)
-                      host.notify({ kind: done ? 'info' : 'warn', message: done ? 'تم نسخ التشخيص / diagnostics copied' : 'الحافظة غير متاحة / clipboard unavailable' })
+                      host.notify({ kind: done ? 'info' : 'warn', message: done ? t('diagnosticsCopied') : t('clipboardUnavailable') })
                     },
                     size: 'xs',
                     variant: 'outline',
-                    children: 'نسخ التشخيص'
+                    children: T('copyDiagnostics')
                   }),
                   jsx(Button, {
                     onClick: () => {
                       resetConfig()
-                      host.notify({ kind: 'info', message: 'تمت الاستعادة / reset' })
+                      host.notify({ kind: 'info', message: t('resetDone') })
                     },
                     size: 'xs',
                     variant: 'outline',
-                    children: 'استعادة'
+                    children: T('resetBtn')
                   })
                 ]
               }),
               jsx(Separator, {}),
-              jsx('div', { className: 'text-[0.625rem] uppercase text-(--ui-text-quaternary)', children: 'تصدير/استيراد JSON' }),
+              jsx('div', { className: 'text-[0.625rem] uppercase text-(--ui-text-quaternary)', children: T('syncTitle') }),
+              jsx(Row, {
+                children: [
+                  jsx('span', { className: 'min-w-0 flex-1', children: T('syncOn') }),
+                  jsx(Switch, { checked: cfg.sync?.on !== false, onCheckedChange: value => setConfig({ sync: { on: value } }), size: 'xs' })
+                ]
+              }),
+              jsxs('div', {
+                className: 'flex items-center gap-1.5',
+                children: [
+                  jsx(Button, {
+                    onClick: () => {
+                      haptic('tap')
+                      void pushSync({})
+                    },
+                    size: 'xs',
+                    variant: 'outline',
+                    children: T('syncNow')
+                  }),
+                  jsx(Badge, { size: 'xs', variant: sync.state === 'error' ? 'warn' : 'outline', children: sync.state === 'idle' ? T('syncNever') : sync.state })
+                ]
+              }),
+              jsx('div', {
+                className: 'text-[0.625rem] leading-4 text-(--ui-text-quaternary)',
+                children: sync.at ? `${T('syncLast')}: ${new Date(sync.at).toLocaleString()}` : T('syncNever')
+              }),
+              jsx('div', { className: 'text-[0.625rem] leading-4 text-(--ui-text-tertiary)', children: T('syncPortableNote') }),
+              jsx(Separator, {}),
+              jsx('div', { className: 'text-[0.625rem] uppercase text-(--ui-text-quaternary)', children: T('jsonExport') }),
               jsx('textarea', {
                 className: 'h-24 w-full resize-none rounded-[3px] border border-(--ui-stroke-secondary) bg-transparent p-1 font-mono text-[0.625rem] outline-none',
                 id: 'hms-config-json',
@@ -1733,7 +2268,7 @@ function StylerPane() {
                     },
                     size: 'xs',
                     variant: 'outline',
-                    children: 'عرض الحالي'
+                    children: T('showCurrent')
                   }),
                   jsx(Button, {
                     onClick: () => {
@@ -1742,14 +2277,14 @@ function StylerPane() {
                       try {
                         const parsed = JSON.parse(el.value)
                         setConfig(parsed)
-                        host.notify({ kind: 'info', message: 'تم الاستيراد / imported' })
+                        host.notify({ kind: 'info', message: t('imported') })
                       } catch (err) {
                         host.notify({ kind: 'error', message: `JSON غير صالح: ${(err && err.message) || err}` })
                       }
                     },
                     size: 'xs',
                     variant: 'default',
-                    children: 'استيراد'
+                    children: T('importBtn')
                   })
                 ]
               }),
@@ -1788,9 +2323,10 @@ function sampleGeometry() {
 }
 
 function StylerChip() {
+  const T = usePluginI18n(ID)
   const stats = useValue($stats)
   return jsx(Tip, {
-    label: 'Session Styler — اضغط للتبديل / click to toggle',
+    label: T('chipTip'),
     children: jsx('button', {
       className: cn(
         'inline-flex h-full items-center gap-1 px-1.5 text-[0.6875rem] transition-colors',
@@ -1818,6 +2354,14 @@ export default {
   register(ctx) {
     store = ctx.storage
     runtime.os = ctx.os || null
+    /* Speak the app's language: our bundles resolve against the active locale,
+     * falling back to our own `en`, then to the key. */
+    try {
+      ctx.i18n?.register?.(MESSAGES)
+      if (typeof ctx.i18n?.t === 'function') translator = ctx.i18n.t
+    } catch {
+      /* older shell: the built-in English bundle still answers */
+    }
     try {
       const saved = store?.get?.(STORE_KEY, null)
       if (saved && typeof saved === 'object') $config.set(merge(DEFAULTS, saved))
@@ -1860,6 +2404,10 @@ export default {
         clearTimeout(runtime.debounce)
         runtime.debounce = null
       }
+      if (syncPushTimer) {
+        clearTimeout(syncPushTimer)
+        syncPushTimer = null
+      }
       detach()
       removeStyle()
       closeSessionMenu()
@@ -1879,6 +2427,7 @@ export default {
      * loaded, so the load reports itself and its match count. */
     applyAll()
     setTimeout(() => applyAll(), 800)
+    if ($config.get().sync?.on) setTimeout(() => void restoreFromProfile(), 1200)
     setTimeout(() => {
       const stats = $stats.get()
       if (!stats.on) return
@@ -1910,37 +2459,37 @@ export default {
         area: PALETTE_AREA,
         data: {
           id: `${ID}.toggle`,
-          label: 'Session Styler: تشغيل/إيقاف',
-          keywords: ['session', 'styler', 'icons', 'أيقونات', 'ألوان'],
+          label: t('cmdToggle'),
+          keywords: ['session', 'styler', 'icons', t('tabIcons'), t('tabColors')],
           run: () => setConfig({ on: !$config.get().on })
         }
       },
       {
         id: 'compact',
         area: PALETTE_AREA,
-        data: { id: `${ID}.compact`, label: 'Session Styler: صفوف مضغوطة', keywords: ['compact'], run: () => setConfig({ size: { ...PRESETS.compact.size } }) }
+        data: { id: `${ID}.compact`, label: t('cmdCompact'), keywords: ['compact'], run: () => setConfig({ size: { ...PRESETS.compact.size } }) }
       },
       {
         id: 'roomy',
         area: PALETTE_AREA,
-        data: { id: `${ID}.roomy`, label: 'Session Styler: صفوف واسعة', keywords: ['roomy', 'large'], run: () => setConfig({ size: { ...PRESETS.roomy.size } }) }
+        data: { id: `${ID}.roomy`, label: t('cmdRoomy'), keywords: ['roomy', 'large'], run: () => setConfig({ size: { ...PRESETS.roomy.size } }) }
       },
       {
         id: 'emojis',
         area: PALETTE_AREA,
-        data: { id: `${ID}.emoji`, label: 'Session Styler: أيقونات إيموجي للحالات', keywords: ['emoji', 'icons'], run: () => setConfig({ icons: { mode: 'emoji' } }) }
+        data: { id: `${ID}.emoji`, label: t('cmdEmoji'), keywords: ['emoji', 'icons'], run: () => setConfig({ icons: { mode: 'emoji' } }) }
       },
       {
         id: 'current',
         area: PALETTE_AREA,
         data: {
           id: `${ID}.current`,
-          label: 'Session Styler: أيقونة المحادثة المفتوحة',
-          keywords: ['icon', 'session', 'conversation', 'أيقونة', 'محادثة'],
+          label: t('cmdCurrent'),
+          keywords: ['icon', 'session', 'conversation', t('ruleIconPlaceholder'), 'محادثة'],
           run: () => {
             const shell = document.querySelector('[data-hms-selected]')
             if (!shell) {
-              host.notify({ kind: 'warn', message: 'لم أجد المحادثة المفتوحة / no active conversation row' })
+              host.notify({ kind: 'warn', message: t('noActiveRow') })
               return
             }
             openSessionMenu(shell)
@@ -1948,15 +2497,25 @@ export default {
         }
       },
       {
+        id: 'sync',
+        area: PALETTE_AREA,
+        data: {
+          id: `${ID}.sync`,
+          label: t('cmdSync'),
+          keywords: ['sync', 'profile', 'machine', 'مزامنة'],
+          run: () => void pushSync({})
+        }
+      },
+      {
         id: 'reset',
         area: PALETTE_AREA,
         data: {
           id: `${ID}.reset`,
-          label: 'Session Styler: استعادة الافتراضي',
+          label: t('cmdReset'),
           keywords: ['reset'],
           run: () => {
             resetConfig()
-            host.notify({ kind: 'info', message: 'Session Styler: تمت الاستعادة' })
+            host.notify({ kind: 'info', message: t('cmdResetDone') })
           }
         }
       },
@@ -1965,12 +2524,12 @@ export default {
         area: PALETTE_AREA,
         data: {
           id: `${ID}.diagnostics`,
-          label: 'Session Styler: نسخ التشخيص',
+          label: t('cmdDiag'),
           keywords: ['diagnostics', 'hooks'],
           run: () => {
             const payload = JSON.stringify({ version: VERSION, config: $config.get(), stats: $stats.get(), hooks: HOOKS }, null, 2)
             const ok = copyToClipboard(payload)
-            host.notify({ kind: ok ? 'info' : 'warn', message: ok ? 'تم نسخ التشخيص / copied' : 'الحافظة غير متاحة / clipboard unavailable' })
+            host.notify({ kind: ok ? 'info' : 'warn', message: ok ? t('cmdDiagDone') : t('clipboardUnavailable') })
           }
         }
       },
@@ -1979,13 +2538,13 @@ export default {
         area: PALETTE_AREA,
         data: {
           id: `${ID}.hooks`,
-          label: 'Session Styler: فحص المُحدِّدات',
+          label: t('cmdHooks'),
           keywords: ['hooks', 'check', 'تحديث'],
           run: () => {
             const stats = $stats.get()
             host.notify({
               kind: stats.rows > 0 ? 'info' : 'error',
-              message: stats.rows > 0 ? `hooks OK — ${stats.rows} صف · ${stats.styled} أيقونة` : 'لم يُعثر على صفوف — افتح تبويب «متقدم» في لوحة session styler'
+              message: stats.rows > 0 ? `hooks OK — ${stats.rows} صف · ${stats.styled} أيقونة` : t('zeroRows')
             })
           }
         }

@@ -3,11 +3,20 @@
 **Customizes the Hermes Desktop session list (the sidebar): icons, colors, and sizes.**
 يقوم بتخصيص قائمة الجلسات في تطبيق Hermes Desktop (الشريط الجانبي): الأيقونات والألوان والأحجام.
 
-- Version / الإصدار: **1.1.0**
+- Version / الإصدار: **1.2.0**
 - Plugin id / المُعرّف: `session-styler`
 - SDK: `@hermes/plugin-sdk` (desktop app plugin — no build step, single ESM file)
 - Verified against / مُتحقَّق منه على: Hermes Desktop build `6005aa1` (2026-09-17)
 
+> **الإصدار 1.2.0**: (1) الأيقونة المخصّصة للمحادثة **لا تُستبدل** بحالة المحادثة — الحالة تظهر
+> **بجانبها** كمؤشر صغير (نقطة أو أيقونة أو بلا)، (2) الإضافة تتكلم **لغة التطبيق** (عربي/إنجليزي)
+> تلقائيًا، (3) إعداداتك وأيقونات محادثاتك **تُحفظ في البروفايل على السيرفر** — فعند تثبيت الإضافة على
+> جهاز جديد والدخول بنفس البروفايل تعود كما هي.
+>
+> **1.2.0**: a custom per-conversation icon is never replaced by the state — the state shows **beside**
+> it; the plugin follows the app's language (ar/en bundles); and settings are mirrored into the
+> profile's `ui_meta` on the gateway, so a new machine restores them on load.
+>
 > **الإصدار 1.1.0**: لكل محادثة أيقونتها — اضغط الزر **✦** الذي يظهر عند المرور على الصف
 > (أو الأمر «Session Styler: أيقونة المحادثة المفتوحة» في ⌘K) واختر الأيقونة أو اللون أو أخفِ الجلسة.
 > والمحادثة الفرعية (ذات الجذع └─) ترث أيقونة المحادثة الأم تلقائيًا. وللمحادثة المفتوحة شكلٌ خاص
@@ -39,7 +48,7 @@
 | التبويب | ماذا يضبط |
 |---|---|
 | **جلسات** | قائمة الجلسات الظاهرة الآن، مع تخصيص كل واحدة (أيقونة/لون/إخفاء)، ومفتاح وراثة المحادثة الأم، وشكل المحادثة المفتوحة |
-| **أيقونات** | لكل حالة (خامل، يعمل، متوقف، ينتظر إجابتك، غير مقروء، خلفية، مسودة): إيموجي أو أيقونة codicon بدل النقطة، مع حجم الأيقونة |
+| **أيقونات** | شكل المقدّمة: «أيقونة + حالة» (الافتراضي) أو «أيقونة فقط» أو «نقطة فقط»، ومؤشر الحالة (نقطة/أيقونة/بلا) وحجمه، ولكل حالة (خامل، يعمل، متوقف، ينتظر إجابتك، غير مقروء، خلفية، مسودة): إيموجي أو أيقونة codicon بدل النقطة، مع حجم الأيقونة |
 | **ألوان** | لون نقطة كل حالة، لون الأيقونة، لون العنوان، لون الأرقام/الوقت، وتلوين خلفية الصف بشدة قابلة للضبط |
 | **أحجام** | ارتفاع الصف، حجم العنوان، حجم الأرقام، خلية الأيقونة، المسافة، الحواف + قوالب (مضغوط/واسع) + **قياس الحالي** |
 | **قواعد** | مطابقة حسب عنوان الجلسة (نص أو regex)، أو البروفايل، أو الحالة → أيقونة/لون/إخفاء الصف |
@@ -189,7 +198,7 @@ npm install          # jsdom + react only
 node run-tests.mjs ../plugin.js
 ```
 
-86 assertions: contribution areas, stylesheet generation, per-state detection, icon injection,
+101 assertions: contribution areas, stylesheet generation, per-state detection, icon injection,
 profile detection, rules (title regex / profile / hide), hook fallback, teardown, persistence,
 the load beacon, per-conversation overrides through the ✦ menu, branch inheritance (child, deep
 child, override-wins, inheritance-off), the selected-conversation look, the hot-reload handover,
