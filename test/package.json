@@ -1,0 +1,16 @@
+{
+  "name": "session-styler-harness",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Runs ../plugin.js against a jsdom fixture of the real Hermes Desktop session row.",
+  "scripts": {
+    "test": "node run-tests.mjs ../plugin.js"
+  },
+  "dependencies": {
+    "@hermes/plugin-sdk": "file:./sdk-stub",
+    "jsdom": "^30.1.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  }
+}
