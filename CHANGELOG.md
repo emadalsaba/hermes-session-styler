@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.0.1 — 2026-09-17
+
+**Fixed**
+
+- **Nothing visible out of the box.** 1.0.0 defaulted to `dot` mode with colors and sizes off, so
+  a successful install looked exactly like no install at all. Emoji icons are now ON by default
+  (idle rows keep the quiet core dot), so the sidebar changes the moment the plugin loads.
+- A mode switch (`emoji` ⇄ `codicon`) now replaces the injected element instead of re-tagging a
+  `<span>` into a codicon `<i>`, so the glyph tag always matches the mode.
+
+**Added**
+
+- A load toast: `Session Styler v1.0.1 · N صف · M أيقونة — ⌘K للتحكم`, and a distinct warning when
+  zero rows match (hook drift) — proof of load on screen, no guessing.
+
+**Tests**: 56 assertions (adds the load toast, the visible default, and the element-swap case).
+
+
 ## 1.0.0 — 2026-09-17
 
 First public release.

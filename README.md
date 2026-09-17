@@ -3,10 +3,18 @@
 **Customizes the Hermes Desktop session list (the sidebar): icons, colors, and sizes.**
 يقوم بتخصيص قائمة الجلسات في تطبيق Hermes Desktop (الشريط الجانبي): الأيقونات والألوان والأحجام.
 
-- Version / الإصدار: **1.0.0**
+- Version / الإصدار: **1.0.1**
 - Plugin id / المُعرّف: `session-styler`
 - SDK: `@hermes/plugin-sdk` (desktop app plugin — no build step, single ESM file)
 - Verified against / مُتحقَّق منه على: Hermes Desktop build `6005aa1` (2026-09-17)
+
+> **الإصدار 1.0.1**: الإضافة تُظهر الأيقونات فورًا بعد التحميل (وضع «إيموجي» افتراضيًا)، وتُظهر
+> إشعارًا عند التحميل يقول كم صفًا وكم أيقونة طُبّقت — لأن إضافة تعمل بلا تغيير مرئي لا يمكن
+> تمييزها عن إضافة لم تُحمَّل. لتغيير الأيقونات أو إرجاع النقاط الأصلية: افتح اللوحة → «أيقونات».
+>
+> **1.0.1**: ships with emoji icons already ON (the quiet core dot is kept for idle rows), and
+> announces itself in a toast on load with its match count. A plugin that loads but changes
+> nothing on screen is indistinguishable from one that never loaded.
 
 ---
 
@@ -105,7 +113,7 @@ Status-bar chip: `<rows>/<icons>` — click to toggle the whole plugin.
 | Icons show but the dot is still there | a rule/state icon is set but the lead hook drifted; check `lead` in **متقدم** |
 | Colors don't apply | enable **تشغيل تعديل الألوان** first; an empty field means "keep the core color" |
 | Everything looks reset after a reinstall | settings live in plugin storage (`hermes.plugin.session-styler.config`) — export JSON from **متقدم** before reinstalling, paste it back after |
-| Did the app actually load it? | the pane's diagnostics line shows `load: <version> @ <timestamp>` — that value is written by the plugin on load, so if it is missing or stale the file was not picked up |
+| Did the app actually load it? (toast on load + `load:` line) | the pane's diagnostics line shows `load: <version> @ <timestamp>` — that value is written by the plugin on load, so if it is missing or stale the file was not picked up |
 
 ## Uninstall
 
@@ -156,7 +164,7 @@ npm install          # jsdom + react only
 node run-tests.mjs ../plugin.js
 ```
 
-53 assertions: contribution areas, stylesheet generation, per-state detection, icon injection,
+56 assertions: contribution areas, stylesheet generation, per-state detection, icon injection,
 profile detection, rules (title regex / profile / hide), hook fallback, teardown, persistence,
 the load beacon, and "drifted DOM does not throw".
 

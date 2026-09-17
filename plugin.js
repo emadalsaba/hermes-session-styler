@@ -47,7 +47,7 @@ import { useEffect, useRef, useState } from 'react'
 import { jsx, jsxs } from 'react/jsx-runtime'
 
 const ID = 'session-styler'
-const VERSION = '1.0.0'
+const VERSION = '1.0.1'
 const STYLE_ID = 'hermes-session-styler-style'
 const STORE_KEY = 'config'
 
@@ -96,7 +96,7 @@ const STATES = ['idle', 'working', 'stalled', 'needsInput', 'unread', 'backgroun
 const DEFAULTS = {
   on: true,
   /* icons: mode 'dot' keeps the core dot; 'emoji' / 'codicon' replace it. */
-  icons: { mode: 'dot', size: 13, color: '', byState: { idle: '', working: '⚡', stalled: '⏳', needsInput: '❗', unread: '🟢', background: '📡', draft: '📝' } },
+  icons: { mode: 'emoji', size: 13, color: '', byState: { idle: '', working: '⚡', stalled: '⏳', needsInput: '❗', unread: '🟢', background: '📡', draft: '📝' } },
   colors: { on: false, states: { idle: '', working: '', stalled: '', needsInput: '', unread: '', background: '', draft: '' }, icon: '', title: '', meta: '', tint: false, tintColor: '', tintStrength: 12 },
   size: { on: false, rowHeight: 26, label: 13, meta: 10, lead: 14, gap: 6, radius: 6 },
   rules: [],
@@ -273,6 +273,12 @@ function ensureIcon(lead, glyph, mode) {
     if (node) node.remove()
     lead.removeAttribute('data-hms-hide-dot')
     return null
+  }
+  const wanted = mode === 'codicon' ? 'I' : 'SPAN'
+  if (node && node.tagName !== wanted) {
+    /* mode switched under us — swap the element so the tag matches the mode */
+    node.remove()
+    node = null
   }
   if (!node) {
     node = document.createElement(mode === 'codicon' ? 'i' : 'span')
@@ -1324,9 +1330,20 @@ export default {
     }
 
     /* First paint: the app may still be mounting, so kick once now and once
-     * after the shell settles. */
+     * after the shell settles — then SAY SO, once. A plugin that loads but
+     * changes nothing on screen is indistinguishable from one that never
+     * loaded, so the load reports itself and its match count. */
     applyAll()
     setTimeout(() => applyAll(), 800)
+    setTimeout(() => {
+      const stats = $stats.get()
+      if (!stats.on) return
+      if (stats.rows > 0) {
+        host.notify({ kind: 'info', message: `Session Styler v${VERSION} · ${stats.rows} صف · ${stats.styled} أيقونة — ⌘K للتحكم` })
+      } else {
+        host.notify({ kind: 'warn', message: `Session Styler v${VERSION}: لم يُعثر على صفوف الجلسات (rows: 0) — افتح اللوحة → متقدم` })
+      }
+    }, 1400)
 
     ctx.register({
       id: 'pane',

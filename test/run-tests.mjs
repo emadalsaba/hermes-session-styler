@@ -120,6 +120,13 @@ check('dot node stamped', doc.querySelectorAll('[data-hms-dot]').length === DEFA
 check('profile read from row chip', byTitle('Odoo sync report')?.getAttribute('data-hms-profile') === 'odoo', String(byTitle('Odoo sync report')?.getAttribute('data-hms-profile')))
 check('profile-less row has no stamp', byTitle('مسودة فارغة')?.hasAttribute('data-hms-profile') === false)
 
+/* ------------------------------------------------- 3b. load toast (proof of load) */
+for (let waited = 0; waited < 40 && !SDK.notifications.some(n => (n.message || '').includes('Session Styler v1.')); waited += 1) {
+  await new Promise(resolve => setTimeout(resolve, 100))
+}
+const loadToast = SDK.notifications.find(n => (n.message || '').includes('Session Styler v1.'))
+check('load toast reports rows + icons on load', Boolean(loadToast) && /\d+ صف/.test(loadToast.message), loadToast?.message)
+
 /* --------------------------------------------------- 4. diagnostics via public API */
 SDK.notifications.length = 0
 palette('hooks')?.data.run()
@@ -127,7 +134,12 @@ const diag = SDK.notifications.at(-1)?.message || ''
 check('palette "hooks" reports the row count', diag.includes(String(DEFAULT_ROWS.length)), diag)
 
 /* -------------------------------------------------------- 5. icons rendering */
-check('default mode keeps the core dot (no icons injected)', doc.querySelectorAll('.hms-icon').length === 0, String(doc.querySelectorAll('.hms-icon').length))
+/* 1.0.1: visible by default — emoji icons on every non-idle state, the quiet
+ * idle dot left alone. */
+const DEFAULT_ICON_ROWS = DEFAULT_ROWS.filter(row => row.dotAttrs.includes('bg-') && !row.dotAttrs.includes('bg-(--ui-text-quaternary)') || row.dotAttrs.includes('border'))
+check('default config iconifies the active states', doc.querySelectorAll('.hms-icon').length === 4, String(doc.querySelectorAll('.hms-icon').length))
+check('default config leaves idle dots alone', !(byTitle('Odoo sync report')?.innerHTML.includes('hms-icon')))
+check('default config works on the working row', Boolean(byTitle('Deploy Hermes update')?.innerHTML.includes('⚡')))
 
 /* flip to emoji through the persisted config path (simulates the pane's toggle) */
 const paneRender = registrations.find(entry => entry.area === SDK.PANES_AREA)?.render
@@ -217,7 +229,7 @@ check('codicon mode injects an <i class="codicon codicon-…">', Boolean(byTitle
 check('codicon icon size uses the configured px', css3.includes('--hms-icon-size: 15px'))
 check('no hardcoded colors leak into the plugin file', !/#[0-9a-f]{6}/i.test(source.replace(/COLOR_SWATCHES[\s\S]*?\]/, '').replace(/ICON_PALETTE[\s\S]*?\]/, '')), 'swatch/palette literals are the only hex values')
 
-check('load beacon written to plugin storage', saved.some(entry => entry.key === 'loadedAt' && typeof entry.value === 'string') && saved.some(entry => entry.key === 'loadedVersion' && entry.value === '1.0.0'))
+check('load beacon written to plugin storage', saved.some(entry => entry.key === 'loadedAt' && typeof entry.value === 'string') && saved.some(entry => entry.key === 'loadedVersion' && entry.value === '1.0.1'))
 
 /* ------------------------------------------- 11. no-op safety on a drifted DOM */
 const plugin4 = (await import(`${LOCAL_PLUGIN.href}?drift=${Date.now()}`)).default
